@@ -29,7 +29,6 @@ logger = logging.getLogger(__name__)
 class CLIOrchestrator():
     def __init__(self, app_params: AppParams):
         self._app_params: AppParams = app_params
-
         self._spotify_client: SpotifyClient
         self._soulseek_downloader: SoulseekDownloader
         self._db_session_maker: async_sessionmaker[AsyncSession]

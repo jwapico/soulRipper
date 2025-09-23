@@ -13,7 +13,7 @@ download_behavior:
   soulseek_only: False                                                # unimplemented
   max_retries: 5                                                      # unimplemented
   inactive_download_timeout: 5                                        # unimplemented
-  concurrent_downloads: 5
+  concurrent_downloads: 1
 
 audio:
   valid_extensions:

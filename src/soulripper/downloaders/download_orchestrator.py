@@ -55,9 +55,13 @@ class DownloadOrchestrator():
         assert search_query is not None
 
         # fetch metadata from discogs api 
-        results = await asyncio.to_thread(self._discogs_client.search, search_query)
-        first_page = results.page(1)
+        # results = await asyncio.to_thread(self._discogs_client.search, search_query)
+        # first_page = [result for result in results.page(1) if result.data_quality == "Correct"]
         # TODO: figure out what we want to store in both the file and database - could just store the releases id for discogs
+        # TODO: copy or refactor some scoring code outside of soulseek_downloader to use with the data
+        #   - need to parse the search query or in some way determine which track in the tracklist we want
+        #   - singles and albums containing the track are returned, we probably will get the best data from the album releases
+        # https://python3-discogs-client.readthedocs.io/en/latest/discogs_client.models.html#discogs_client.models.Release
 
         # download the track from soulseek or youtube
         async with self._download_semaphore:

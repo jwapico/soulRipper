@@ -155,3 +155,5 @@ class SpotifyClient():
 
         if profile:
             return (profile["id"], profile["display_name"])
+
+    # async def
