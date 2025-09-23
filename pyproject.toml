@@ -25,7 +25,8 @@ dependencies = [
   "aiosqlite",
   "greenlet",
   "rapidfuzz",
-  "httpx"
+  "httpx",
+  "discogs_client"
 ]
 
 [project.urls]

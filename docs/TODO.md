@@ -34,7 +34,7 @@ TODO's (~ roughly in order of importance):
               - weird idea for playlists: more than one song can follow another
                   - basically playlists are trees now :o
                   - ui would prolly be nested drop downs
-      - FLUTTER !!!
+      - flutter
           - we need to write a REST API wrapper for our core functionality
           - https://docs.flutter.dev/
           - https://docs.flutter.dev/get-started/codelab
