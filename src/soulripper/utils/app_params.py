@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List
+from typing import List, Optional
 
 # dataclass containing all the configuration data our app needs
 @dataclass()
@@ -8,7 +8,7 @@ class AppParams:
     database_path: str
     soulseek_only: bool
     youtube_only: bool
-    youtube_cookie_filepath: str
+    youtube_cookie_filepath: Optional[str]
     max_download_retries: int
     inactive_download_timeout: int
     spotify_scope: str

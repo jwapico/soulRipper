@@ -50,27 +50,15 @@ class DownloadOrchestrator():
             existing_track = await TracksRepository.get_existing_track(self._sql_session, track_data)
             if existing_track and existing_track.filepath:
                 return existing_track.filepath
-            
-        # this is mainly for pylance
-        assert search_query is not None
-
-        # fetch metadata from discogs api 
-        # results = await asyncio.to_thread(self._discogs_client.search, search_query)
-        # first_page = [result for result in results.page(1) if result.data_quality == "Correct"]
-        # TODO: figure out what we want to store in both the file and database - could just store the releases id for discogs
-        # TODO: copy or refactor some scoring code outside of soulseek_downloader to use with the data
-        #   - need to parse the search query or in some way determine which track in the tracklist we want
-        #   - singles and albums containing the track are returned, we probably will get the best data from the album releases
-        # https://python3-discogs-client.readthedocs.io/en/latest/discogs_client.models.html#discogs_client.models.Release
-
+    
         # download the track from soulseek or youtube
         async with self._download_semaphore:
             if self._app_params.youtube_only:
-                download_path = await download_track_ytdlp(search_query, self._app_params.output_path)
+                download_path = await download_track_ytdlp(search_query, self._app_params.output_path, self._app_params.youtube_cookie_filepath)
             else:
                 download_path = await self._soulseek_downloader.download_track(search_query, self._app_params.output_path, self._app_params.max_download_retries)
                 if download_path is None:
-                    download_path = await download_track_ytdlp(search_query, self._app_params.output_path)
+                    download_path = await download_track_ytdlp(search_query, self._app_params.output_path, self._app_params.youtube_cookie_filepath)
 
         # add a new row to the Tracks table with the new filepath if we got one
         async with self._db_lock:
@@ -84,6 +72,16 @@ class DownloadOrchestrator():
                 await self._sql_session.commit()
 
         return download_path
+
+        # fetch metadata from discogs api 
+        # results = await asyncio.to_thread(self._discogs_client.search, search_query)
+        # first_page = [result for result in results.page(1) if result.data_quality == "Correct"]
+        # TODO: figure out what we want to store in both the file and database - could just store the releases id for discogs
+        # TODO: copy or refactor some scoring code outside of soulseek_downloader to use with the data
+        #   - need to parse the search query or in some way determine which track in the tracklist we want
+        #   - singles and albums containing the track are returned, we probably will get the best data from the album releases
+        # https://python3-discogs-client.readthedocs.io/en/latest/discogs_client.models.html#discogs_client.models.Release
+
 
     async def download_playlist(self, playlist_id: int) -> None:
         """
@@ -134,6 +132,7 @@ class DownloadOrchestrator():
         """
         Downloads all the users liked songs
         """
+        # get the SPOTIFY_LIKED_SONGS playlist row or populate it with spotify data if it does not already exist
         liked_playlist_row = await PlaylistsRepository.search_for_playlist_by_title(self._sql_session, "SPOTIFY_LIKED_SONGS")
         if liked_playlist_row is None:
             liked_playlist_row = await self._spotify_synchronizer.update_db_with_spotify_liked_tracks()

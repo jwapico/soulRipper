@@ -121,7 +121,7 @@ class SoulseekDownloader:
                     if slskd_download["state"] == "Completed, Succeeded":
                         # by default slskd places downloads in assets/downloads/<containing folder name of file from user>/<file from user>
                         containing_dir_name = os.path.basename(os.path.dirname(download_filepath.replace("\\", "/")))
-                        source_path = os.path.join(f"/home/soulripper/assets/downloads/{containing_dir_name}/{download_filename}")
+                        source_path = os.path.join(f"{os.getcwd()}/assets/downloads/{containing_dir_name}/{download_filename}")
                         final_filepath = os.path.join(f"{output_path}/{download_filename}")
                         logger.info(f"Soulseek download completed successfully: {final_filepath}")
 
@@ -129,9 +129,9 @@ class SoulseekDownloader:
                             logger.error(f"SLSKD download state is 'Completed, Succeeded' but the file was not found: {source_path}")
                             return None
                         
-                        # TODO: refactor into function to use in youtube.py, also needs to change filename based on search query/TrackData and update comments and metadata fields
                         await asyncio.to_thread(os.makedirs, os.path.dirname(final_filepath), exist_ok=True)
-                        await asyncio.to_thread(shutil.move, source_path, final_filepath)
+                        await asyncio.to_thread(shutil.copy2, source_path, final_filepath)
+
                     else:
                         logger.info(f"Download failed: {slskd_download['state']}")
                         final_filepath = None
