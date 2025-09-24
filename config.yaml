@@ -3,17 +3,18 @@
 # NOTE: all paths must be absolute
 
 paths:
-  music_dir_root: /home/soulripper/debug/music                        # unimplemented
-  output_path: /home/soulripper/debug/music
-  youtube_cookie_filepath: /home/soulripper/assets/cookies.txt
-  database_path: /home/soulripper/assets/soul.db
+  music_dir_root: /home/goop/soulRipper/debug/music                   # unimplemented
+  output_path: /home/goop/soulRipper/debug/music                      # the path where your music will be downloaded
+  youtube_cookie_filepath: /home/goop/soulRipper/assets/cookies.txt   # the path to your youtube cookies.txt file, yt-dlp may not work without this
+  database_path: /home/goop/soulRipper/assets/soul.db                 # the path to the sqlite database file
+  slskd_exe_path: ~                                                   # unimplemented applicable if you are using a specific release of slskd, otherwise we pull the latest docker image
 
 download_behavior:
-  youtube_only: False
+  youtube_only: False                                                 # if set to True will only download from yt-dlp
   soulseek_only: False                                                # unimplemented
   max_retries: 5                                                      # unimplemented
   inactive_download_timeout: 5                                        # unimplemented
-  concurrent_downloads: 1
+  concurrent_downloads: 1                                             # the max number of files to download at the same time
 
 audio:
   valid_extensions:
@@ -27,5 +28,5 @@ privacy:
 debug:
   log: True                                                           # unimplemented
   log_level: DEBUG                                                    # DEBUG, INFO, WARNING, ERROR, CRITICAL
-  log_filepath: /home/soulripper/debug/log.txt                        # unimplemented
+  log_filepath: /home/goop/soulRipper/debug/log.txt                   # unimplemented
   db_echo: False

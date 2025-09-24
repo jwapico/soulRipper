@@ -31,7 +31,7 @@ class SoulseekDownloader:
         self._client = None
 
     async def __aenter__(self):
-        self._client = AsyncSlsksdClient("http://slskd:5030", self._api_key)
+        self._client = AsyncSlsksdClient("http://localhost:5030", self._api_key)
         await self._client.__aenter__()
         return self
     

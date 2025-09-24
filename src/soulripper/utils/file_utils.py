@@ -98,6 +98,7 @@ def extract_app_params(config_filepath: str) -> AppParams:
     EXTENSIONS = config.get("audio", {}).get("valid_extensions", [".mp3", ".flac", ".wav"])
     LOG_LEVEL_STR = config.get("debug", {}).get("log_level", "INFO")
     NUM_CUNCURRENT_DOWNLOADS = config.get("download_behavior", {}).get("concurrent_downloads", 10)
+    SLSKD_EXE_PATH = config.get("paths", {}).get("slskd_exe_path", "")
 
     match LOG_LEVEL_STR:
         case "DEBUG":
@@ -127,5 +128,6 @@ def extract_app_params(config_filepath: str) -> AppParams:
         log_filepath=LOG_FILEPATH,
         db_echo=DB_ECHO,
         valid_music_extensions=EXTENSIONS,
-        num_concurrent_downloads=NUM_CUNCURRENT_DOWNLOADS
+        num_concurrent_downloads=NUM_CUNCURRENT_DOWNLOADS,
+        slskd_exe_path=SLSKD_EXE_PATH
     )

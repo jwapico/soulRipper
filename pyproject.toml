@@ -7,7 +7,7 @@ name = "SoulRipper"
 version = "0.1.0"
 description = "Sync your local music with Spotify using Soulseek and yt-dlp"
 readme = "README.md"
-license = { text = "MIT" }
+license = "MIT"
 authors = [{ name = "Jacob Altizer", email = "altizer16@outlook.com" }]
 dependencies = [
   "python-dotenv",
@@ -26,7 +26,8 @@ dependencies = [
   "greenlet",
   "rapidfuzz",
   "httpx",
-  "discogs_client"
+  "discogs_client",
+  "docker",
 ]
 
 [project.urls]
