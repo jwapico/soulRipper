@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 # TODO: parse the stdout output and publish download events
 
 # TODO: need to embed metadata into the file after it downloads
-async def download_track_ytdlp(search_query: str, output_path: str) -> Optional[str] :
+async def download_track_ytdlp(search_query: str, output_path: str, cookies_filepath: Optional[str]) -> Optional[str] :
     """
     Downloads a track from youtube using yt-dlp
     
@@ -27,19 +27,29 @@ async def download_track_ytdlp(search_query: str, output_path: str) -> Optional[
     logger.info(f"Downloading from yt-dlp: {search_query}")
 
     # download the file using yt-dlp and necessary flags
-    process = await asyncio.create_subprocess_exec(
-        "yt-dlp",
-        search_query,
-        # TODO: this should be better
-        # "--cookies-from-browser", "firefox:~/snap/firefox/common/.mozilla/firefox/fpmcru3a.default",
-        "--cookies", "/home/soulripper/assets/cookies.txt",
-        "-x", "--audio-format", "mp3",
-        "--embed-thumbnail", "--add-metadata",
-        "--paths", output_path,
-        "-o", "%(title)s.%(ext)s",
-        stdout=asyncio.subprocess.PIPE, 
-        stderr=asyncio.subprocess.STDOUT
-    )
+    if cookies_filepath:
+        process = await asyncio.create_subprocess_exec(
+            "yt-dlp",
+            search_query,
+            "--cookies", cookies_filepath,
+            "-x", "--audio-format", "mp3",
+            "--embed-thumbnail", "--add-metadata",
+            "--paths", output_path,
+            "-o", "%(title)s.%(ext)s",
+            stdout=asyncio.subprocess.PIPE, 
+            stderr=asyncio.subprocess.STDOUT
+        )
+    else:
+        process = await asyncio.create_subprocess_exec(
+            "yt-dlp",
+            search_query,
+            "-x", "--audio-format", "mp3",
+            "--embed-thumbnail", "--add-metadata",
+            "--paths", output_path,
+            "-o", "%(title)s.%(ext)s",
+            stdout=asyncio.subprocess.PIPE, 
+            stderr=asyncio.subprocess.STDOUT
+        )
 
     # log and save the output since we need to search it for the filepath
     if process.stdout is not None:

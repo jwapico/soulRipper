@@ -8,6 +8,8 @@ TODO's (~ roughly in order of importance):
       - make BaseRepository class that all other repository classes inherit from
           - database interaction event for better cli updates
   - better search and selection for soulseek AND yt-dlp given song title and artist
+  - automatic backups for database
+    - option for external hard drive backups
   - better USER INTERFACE - GUI 
       - we should keep a cli but make it better, the long flags are annoying as fuck
           - maybe reimplement the infinite prompting thing from the submission
