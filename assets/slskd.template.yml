@@ -38,12 +38,12 @@
 # permissions:
 #   file:
 #     mode: ~ # not for Windows, chmod syntax, e.g. 644, 777. can't escalate beyond umask
-# directories:
-#   incomplete: /home/goop/dev/soulseek/incompletee
-#   downloads: /home/goop/dev/soulseek/downloadss
+directories:
+  incomplete: \your\path\to\soulRipper\assets\incomplete
+  downloads: \your\path\to\soulRipper\assets\downloads
 shares:
   directories:
-    - '/home/soulripper/assets/downloads'
+    - '\your\share\dir'
   filters:
     - \.ini$
     - Thumbs.db$

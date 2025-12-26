@@ -37,12 +37,12 @@ class CLIOrchestrator():
         self._db_session_maker: async_sessionmaker[AsyncSession]
         self._db_engine: AsyncEngine
 
-        # these are just for terminal/printing state
+        # terminal/printing state
         self._spinner_task = None
         self._spinner_running = False
         self._num_found_files: int
 
-        # this is config for the download bar, it forces us to use a context
+        # config for the download bar
         self._download_bar = None
         self._download_bar_ctx = None
         self._update_terminal_size()
@@ -97,27 +97,20 @@ class CLIOrchestrator():
         else:
             raise Exception("You need to set SLSKD_API_KEY in your .env file")
         
-        # discogs init
-        DISCOGS_TOKEN = os.getenv("DISCOGS_TOKEN")
-        if DISCOGS_TOKEN:
-            self._discogs_client = discogs_client.Client("soulripper/0.1", user_token=DISCOGS_TOKEN)
-        else:
-            logger.warning("No Discogs user token found")
-        
         # create new db session and call different code depending on args
         async with self._db_session_maker() as session:
             async with self._soulseek_downloader as soulseek_downloader:
                 self._local_synchronizer = LocalSynchronizer(session)
                 self._spotify_synchronizer = SpotifySynchronizer(session, self._spotify_client)
-                self._download_orchestrator = DownloadOrchestrator(self._soulseek_downloader, self._spotify_client, self._spotify_synchronizer, self._discogs_client, session, self._app_params)
+                self._download_orchestrator = DownloadOrchestrator(self._soulseek_downloader, self._spotify_client, self._spotify_synchronizer, session, self._app_params)
 
                 if DROP_DATABASE:
                     input("Warning: This will drop all tables in the database. Press enter to continue...")
                     async with self._db_engine.begin() as conn:
                         await conn.run_sync(lambda sync_conn: Base.metadata.drop_all(sync_conn))
                         await conn.run_sync(lambda sync_conn: Base.metadata.create_all(sync_conn))
-                else:
-                    await self._local_synchronizer.add_local_library_to_db(self._app_params.output_path, self._app_params.valid_music_extensions)
+                # else:
+                #     await self._local_synchronizer.add_local_library_to_db(self._app_params.output_path, self._app_params.valid_music_extensions)
 
                 # manual way to add a new local track to the database
                 if NEW_TRACK_FILEPATH:
