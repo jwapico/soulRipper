@@ -1,0 +1,144 @@
+from sqlalchemy.ext.asyncio import AsyncSession
+from typing import Optional
+import discogs_client
+import logging
+import asyncio
+
+from soulripper.database.services import SpotifySynchronizer
+from soulripper.database.repositories import TracksRepository, PlaylistsRepository
+from soulripper.database.schemas import TrackData
+from soulripper.api_clients import SpotifyClient, DiscogsClient
+from soulripper.downloaders import SoulseekDownloader, download_track_ytdlp
+from soulripper.utils import AppParams
+
+logger = logging.getLogger(__name__)
+
+class DownloadOrchestrator():
+    def __init__(self, soulseek_downloader: SoulseekDownloader, spotify_client: SpotifyClient, spotify_synchronizer: SpotifySynchronizer, sql_session: AsyncSession, app_params: AppParams):
+        self._soulseek_downloader = soulseek_downloader
+        self._spotify_client = spotify_client
+        self._spotify_synchronizer = spotify_synchronizer
+        self._sql_session = sql_session
+        self._app_params = app_params
+        self._download_semaphore = asyncio.Semaphore(app_params.num_concurrent_downloads)
+        self._db_lock = asyncio.Lock()
+
+    # TODO: get accurate metadata for the track and embed it into the file and database row
+    async def download_track(self, track_data: Optional[TrackData] = None, search_query: Optional[str] = None, update_db: Optional[bool] = False) -> Optional[str]:
+        """
+        Downloads a track from SoulSeek or Youtube, optionally updates the database with it.
+
+        Args:
+            track_data (Optional[TrackData]) = None: a TrackData object to construct the search query and update the db with
+            search_query (Optional[str]) = None: a search query to use for soulseek and youtube
+            update_db (Optional[bool]) = False: Whether or not to update the database
+
+        Returns:
+            str: 
+        """
+        # make sure we have either track data or a search query to work with
+        if (track_data is None and search_query is None) or (track_data and search_query):
+            raise Exception("Incorrect arguments, you mast pass either a TrackData OR search query")
+
+        # construct the search query from the track data if track data was passed in
+        if track_data:
+            artists = ', '.join([artist[0] for artist in track_data.artists]) if track_data.artists else ""
+            search_query = f"{track_data.title} - {artists}"
+
+            # if an existing track has already been downloaded, return its filepath since we dont need to redownload it
+            existing_track = await TracksRepository.get_existing_track(self._sql_session, track_data)
+            if existing_track and existing_track.filepath:
+                return existing_track.filepath
+            
+        assert search_query is not None
+    
+        # download the track from soulseek or youtube
+        async with self._download_semaphore:
+            if self._app_params.youtube_only:
+                download_path = await download_track_ytdlp(search_query, self._app_params.output_path, self._app_params.youtube_cookie_filepath)
+            else:
+                download_path = await self._soulseek_downloader.download_track(search_query, self._app_params.output_path, self._app_params.max_download_retries)
+                if download_path is None:
+                    download_path = await download_track_ytdlp(search_query, self._app_params.output_path, self._app_params.youtube_cookie_filepath)
+
+        # add a new row to the Tracks table with the new filepath if we got one
+        async with self._db_lock:
+            if download_path and update_db:
+                if track_data:
+                    track_data.filepath = download_path
+                else:
+                    track_data = TrackData(filepath=download_path)
+
+                await TracksRepository.add_track(self._sql_session, track_data)
+                await self._sql_session.commit()
+
+        return download_path
+
+        # fetch metadata from discogs api 
+        # results = await asyncio.to_thread(self._discogs_client.search, search_query)
+        # first_page = [result for result in results.page(1) if result.data_quality == "Correct"]
+        # TODO: figure out what we want to store in both the file and database - could just store the releases id for discogs
+        # TODO: copy or refactor some scoring code outside of soulseek_downloader to use with the data
+        #   - need to parse the search query or in some way determine which track in the tracklist we want
+        #   - singles and albums containing the track are returned, we probably will get the best data from the album releases
+        # https://python3-discogs-client.readthedocs.io/en/latest/discogs_client.models.html#discogs_client.models.Release
+
+
+    async def download_playlist(self, playlist_id: int) -> None:
+        """
+        Downloads all the tracks of a playlist in the database
+
+        Args:
+            playlist_id (int): The id of the playlist to download
+        """
+        # get the PlaylistTracks rows
+        playlist_track_rows = await PlaylistsRepository.get_playlist_track_rows(self._sql_session, playlist_id)
+        if playlist_track_rows is None:
+            logger.error(f"Could not retreive playlist tracks from database. Playlist id: {playlist_id}")
+            return
+        
+        # get the Tracks rows
+        playlist_track_data = await PlaylistsRepository.get_track_data(self._sql_session, playlist_id)
+        if playlist_track_data is None:
+            logger.error(f"Could not retreive track data for tracks in playlist. Playlist id: {playlist_id}")
+            return
+        
+        # create a new download_track task for each track in the playlist, then run them all concurrently
+        tasks = [self.download_track(track_data=td, update_db=True) for td in playlist_track_data]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # log results
+        for result, td in zip(results, playlist_track_data):
+            if isinstance(result, Exception):
+                logger.error(f"Download errored for {td.title}: {str(result)}")
+            elif result is None:
+                logger.info(f"Download failed for {td.title} (result is None)")
+            else:
+                logger.info(f"Successfully downloaded {td.title} to {result}")
+
+    async def download_all_playlists(self) -> None:
+        """
+        Downloads all of the tracks in all of the users playlists
+        """
+        playlists_data = await PlaylistsRepository.get_all_playlists(self._sql_session)
+        if playlists_data is None:
+            logger.warning("No playlists to download in the database")
+            return
+        
+        # create and run asyncio tasks that download each playlist
+        tasks = [self.download_playlist(playlist_id=playlist.id) for playlist in playlists_data if playlist.id]
+        await asyncio.gather(*tasks, return_exceptions=True)
+    
+    async def download_liked_songs(self) -> None:
+        """
+        Downloads all the users liked songs
+        """
+        # get the SPOTIFY_LIKED_SONGS playlist row or populate it with spotify data if it does not already exist
+        liked_playlist_row = await PlaylistsRepository.search_for_playlist_by_title(self._sql_session, "SPOTIFY_LIKED_SONGS")
+        if liked_playlist_row is None:
+            liked_playlist_row = await self._spotify_synchronizer.update_db_with_spotify_liked_tracks()
+
+        if liked_playlist_row:
+            await self.download_playlist(liked_playlist_row.id)
+        else:
+            logger.error("No SPOTIFY_LIKED_SONGS playlist was found")

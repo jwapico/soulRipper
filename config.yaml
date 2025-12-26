@@ -1,16 +1,32 @@
 # TODO: implement all of the unimplemented fields 
 
-spotify_scope: "user-library-read user-read-private playlist-read-collaborative playlist-read-private"
-output_path: ~
+# NOTE: all paths must be absolute
+
+paths:
+  music_dir_root: C:\Users\altiz\dev\soulRipper\debug\music                   # unimplemented
+  output_path: C:\Users\altiz\dev\soulRipper\debug\music                      # the path where your music will be downloaded
+  youtube_cookie_filepath: C:\Users\altiz\dev\soulRipper\assets\cookies.txt   # the path to your youtube cookies.txt file, yt-dlp may not work without this
+  database_path: C:\Users\altiz\dev\soulRipper\assets\soul.db                 # the path to the sqlite database file
+  slskd_exe_path: ~                                                   # unimplemented applicable if you are using a specific release of slskd, otherwise we pull the latest docker image
 
 download_behavior:
-  youtube_only: False
-  soulseek_only: False                                      # unimplemented
-  max_retries: 5                                            # unimplemented
-  inactive_download_timeout: 10                             # unimplemented
+  youtube_only: False                                                 # if set to True will only download from yt-dlp
+  soulseek_only: False                                                # unimplemented
+  max_retries: 5                                                      # unimplemented
+  inactive_download_timeout: 5                                        # unimplemented
+  concurrent_downloads: 1                                             # the max number of files to download at the same time
+
+audio:
+  valid_extensions:
+    - ".mp3"
+    - ".flac"
+    - ".wav"
+
+privacy:
+  spotify_scope: "user-library-read user-read-private playlist-read-collaborative playlist-read-private"
 
 debug:
-  log: False                                                # unimplemented
-  log_filepath: debug/log.txt                               # unimplemented
-
-# TODO: all soulseek stuff too - also should write in api keys from .env file
+  log: True                                                           # unimplemented
+  log_level: DEBUG                                                    # DEBUG, INFO, WARNING, ERROR, CRITICAL
+  log_filepath: C:\Users\altiz\dev\soulRipper\debug\log.txt                   # unimplemented
+  db_echo: False

@@ -6,8 +6,12 @@ RUN apt install -y python3 python3-pip python3-venv ffmpeg git
 RUN mkdir /home/soulripper
 WORKDIR /home/soulripper
 
-COPY requirements.txt .
+COPY pyproject.toml .
+COPY README.md .
+COPY src/ ./src/
+RUN python3 -m pip install --upgrade pip setuptools wheel
 RUN python3 -m venv venv
-RUN bash -c "source venv/bin/activate && pip install -r requirements.txt"
+RUN bash -c "source venv/bin/activate && pip install ."
 
 RUN echo "source /home/soulripper/venv/bin/activate" >> /root/.bashrc
+RUN echo "export PYTHONPATH=/home/soulripper/src" >> /root/.bashrc
