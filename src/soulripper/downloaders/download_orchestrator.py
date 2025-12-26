@@ -14,11 +14,10 @@ from soulripper.utils import AppParams
 logger = logging.getLogger(__name__)
 
 class DownloadOrchestrator():
-    def __init__(self, soulseek_downloader: SoulseekDownloader, spotify_client: SpotifyClient, spotify_synchronizer: SpotifySynchronizer, discogs_client: discogs_client.Client, sql_session: AsyncSession, app_params: AppParams):
+    def __init__(self, soulseek_downloader: SoulseekDownloader, spotify_client: SpotifyClient, spotify_synchronizer: SpotifySynchronizer, sql_session: AsyncSession, app_params: AppParams):
         self._soulseek_downloader = soulseek_downloader
         self._spotify_client = spotify_client
         self._spotify_synchronizer = spotify_synchronizer
-        self._discogs_client = discogs_client
         self._sql_session = sql_session
         self._app_params = app_params
         self._download_semaphore = asyncio.Semaphore(app_params.num_concurrent_downloads)
@@ -50,6 +49,8 @@ class DownloadOrchestrator():
             existing_track = await TracksRepository.get_existing_track(self._sql_session, track_data)
             if existing_track and existing_track.filepath:
                 return existing_track.filepath
+            
+        assert search_query is not None
     
         # download the track from soulseek or youtube
         async with self._download_semaphore:

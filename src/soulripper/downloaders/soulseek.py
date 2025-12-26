@@ -123,12 +123,12 @@ class SoulseekDownloader:
                         containing_dir_name = os.path.basename(os.path.dirname(download_filepath.replace("\\", "/")))
                         source_path = os.path.join(f"{os.getcwd()}/assets/downloads/{containing_dir_name}/{download_filename}")
                         final_filepath = os.path.join(f"{output_path}/{download_filename}")
-                        logger.info(f"Soulseek download completed successfully: {final_filepath}")
 
                         if not os.path.exists(source_path):
                             logger.error(f"SLSKD download state is 'Completed, Succeeded' but the file was not found: {source_path}")
                             return None
                         
+                        logger.info(f"Soulseek download completed successfully: {final_filepath}")
                         await asyncio.to_thread(os.makedirs, os.path.dirname(final_filepath), exist_ok=True)
                         await asyncio.to_thread(shutil.copy2, source_path, final_filepath)
 
@@ -286,7 +286,7 @@ class SoulseekDownloader:
         # subtract 100 for each disallowed term in the filename
         base_disallowed_terms = [
             "acapella", "instrumental", "stems", "intro", "edit", "edited", "clean", "remix", "mix", "transition", "stems", "club", "radio", 
-            "snippet", "sample", "preview", "karaoke", "cover", "parody", "rework", "bootleg", "mashup", "live", "redo", "joint", "edition",
+            "snippet", "sample", "preview", "karaoke", "cover", "parody", "rework", "bootleg", "mashup", "live", "redo", "joint"
         ]
         disallowed_terms = [term for term in base_disallowed_terms if term not in search_query.lower()]
         for term in disallowed_terms:
