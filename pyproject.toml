@@ -12,7 +12,7 @@ authors = [{ name = "Jacob Altizer", email = "altizer16@outlook.com" }]
 dependencies = [
   "python-dotenv",
   "slskd-api",
-  "yt-dlp",
+  "yt-dlp[default]",
   "sqlalchemy",
   "spotipy",
   "mutagen",
@@ -26,7 +26,6 @@ dependencies = [
   "greenlet",
   "rapidfuzz",
   "httpx",
-  "discogs_client",
   "docker",
 ]
 
