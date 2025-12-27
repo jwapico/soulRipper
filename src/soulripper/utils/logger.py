@@ -1,6 +1,7 @@
 import logging
 import sys
 import os
+import io
 
 def init_logger(log_filepath: str, log_level: int, db_echo: bool, silence_other_packages: bool = True):
     """
@@ -18,12 +19,21 @@ def init_logger(log_filepath: str, log_level: int, db_echo: bool, silence_other_
         with open(log_filepath, "x"):
             pass
 
+    # handlers with UTF-8 encoding and a UTF-8 stream wrapper for stderr (emoji support 😘)
+    file_handler = logging.FileHandler(log_filepath, encoding="utf-8")
+
+    try:
+        stderr_stream = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace", line_buffering=True)
+    except Exception:
+        stderr_stream = sys.stderr
+    stream_handler = logging.StreamHandler(stderr_stream)
+
     logging.basicConfig(
         level=log_level,
         format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
         handlers=[
-            logging.FileHandler(log_filepath),
-            logging.StreamHandler()
+            file_handler,
+            stream_handler
         ]
     )
 
