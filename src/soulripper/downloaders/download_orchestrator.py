@@ -36,43 +36,47 @@ class DownloadOrchestrator():
         Returns:
             str: 
         """
-        # make sure we have either track data or a search query to work with
-        if (track_data is None and search_query is None) or (track_data and search_query):
-            raise Exception("Incorrect arguments, you mast pass either a TrackData OR search query")
+        try:
+            # make sure we have either track data or a search query to work with
+            if (track_data is None and search_query is None) or (track_data and search_query):
+                raise Exception("Incorrect arguments, you mast pass either a TrackData OR search query")
 
-        # construct the search query from the track data if track data was passed in
-        if track_data:
-            artists = ', '.join([artist[0] for artist in track_data.artists]) if track_data.artists else ""
-            search_query = f"{track_data.title} - {artists}"
+            # construct the search query from the track data if track data was passed in
+            if track_data:
+                artists = ', '.join([artist[0] for artist in track_data.artists]) if track_data.artists else ""
+                search_query = f"{track_data.title} - {artists}"
 
-            # if an existing track has already been downloaded, return its filepath since we dont need to redownload it
-            existing_track = await TracksRepository.get_existing_track(self._sql_session, track_data)
-            if existing_track and existing_track.filepath:
-                return existing_track.filepath
-            
-        assert search_query is not None
-    
-        # download the track from soulseek or youtube
-        async with self._download_semaphore:
-            if self._app_params.youtube_only:
-                download_path = await download_track_ytdlp(search_query, self._app_params.output_path, self._app_params.youtube_cookie_filepath)
-            else:
-                download_path = await self._soulseek_downloader.download_track(search_query, self._app_params.output_path, self._app_params.max_download_retries)
-                if download_path is None:
+                # if an existing track has already been downloaded, return its filepath since we dont need to redownload it
+                existing_track = await TracksRepository.get_existing_track(self._sql_session, track_data)
+                if existing_track and existing_track.filepath:
+                    return existing_track.filepath
+                
+            assert search_query is not None
+        
+            # download the track from soulseek or youtube
+            async with self._download_semaphore:
+                if self._app_params.youtube_only:
                     download_path = await download_track_ytdlp(search_query, self._app_params.output_path, self._app_params.youtube_cookie_filepath)
-
-        # add a new row to the Tracks table with the new filepath if we got one
-        async with self._db_lock:
-            if download_path and update_db:
-                if track_data:
-                    track_data.filepath = download_path
                 else:
-                    track_data = TrackData(filepath=download_path)
+                    download_path = await self._soulseek_downloader.download_track(search_query, self._app_params.output_path, self._app_params.max_download_retries)
+                    if download_path is None:
+                        download_path = await download_track_ytdlp(search_query, self._app_params.output_path, self._app_params.youtube_cookie_filepath)
 
-                await TracksRepository.add_track(self._sql_session, track_data)
-                await self._sql_session.commit()
+            # add a new row to the Tracks table with the new filepath if we got one
+            async with self._db_lock:
+                if download_path and update_db:
+                    if track_data:
+                        track_data.filepath = download_path
+                    else:
+                        track_data = TrackData(filepath=download_path)
 
-        return download_path
+                    await TracksRepository.add_track(self._sql_session, track_data)
+                    await self._sql_session.commit()
+
+            return download_path
+
+        except asyncio.CancelledError:
+            raise
 
         # fetch metadata from discogs api 
         # results = await asyncio.to_thread(self._discogs_client.search, search_query)
@@ -82,7 +86,6 @@ class DownloadOrchestrator():
         #   - need to parse the search query or in some way determine which track in the tracklist we want
         #   - singles and albums containing the track are returned, we probably will get the best data from the album releases
         # https://python3-discogs-client.readthedocs.io/en/latest/discogs_client.models.html#discogs_client.models.Release
-
 
     async def download_playlist(self, playlist_id: int) -> None:
         """

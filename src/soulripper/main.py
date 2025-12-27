@@ -15,7 +15,10 @@ async def main():
         await cli_orchestrator.run()
 
 def soulrip():
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        os._exit(0)
 
 if __name__ == "__main__":
     soulrip()

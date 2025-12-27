@@ -6,7 +6,7 @@
             "type": "debugpy",
             "request": "launch",
             "module": "soulripper.main",
-            "cwd": "${workspaceFolder}/src",
+            "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
         },
         {
@@ -14,11 +14,12 @@
             "type": "debugpy",
             "request": "launch",
             "module": "soulripper.main",
-            "cwd": "${workspaceFolder}/src",
+            "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
             "args": [
                 "--playlist-url",
-                "https://open.spotify.com/playlist/6h9OgN50iDfClEDryizNe5?si=bd17141666794e3f",
+                // "https://open.spotify.com/playlist/6h9OgN50iDfClEDryizNe5?si=bd17141666794e3f",
+                "https://open.spotify.com/playlist/1wybFX6hSdmwluPx2sbufs?si=7bb9211eea7c4d51"
             ]
         },
         {
@@ -26,7 +27,7 @@
             "type": "debugpy",
             "request": "launch",
             "module": "soulripper.main",
-            "cwd": "${workspaceFolder}/src",
+            "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
             "args": [
                 "--playlist-url",
@@ -41,7 +42,7 @@
             "type": "debugpy",
             "request": "launch",
             "module": "soulripper.main",
-            "cwd": "${workspaceFolder}/src",
+            "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
             "args": [
                 "--download-liked",
@@ -52,7 +53,7 @@
             "type": "debugpy",
             "request": "launch",
             "module": "soulripper.main",
-            "cwd": "${workspaceFolder}/src",
+            "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
             "args": [
                 "--download-all-playlists",
@@ -63,7 +64,7 @@
             "type": "debugpy",
             "request": "launch",
             "module": "soulripper.main",
-            "cwd": "${workspaceFolder}/src",
+            "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
             "args": [
                 "--drop-database"
@@ -74,11 +75,11 @@
             "type": "debugpy",
             "request": "launch",
             "module": "soulripper.main",
-            "cwd": "${workspaceFolder}/src",
+            "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
             "args": [
                 "--search-query",
-                "Paradise - Sade"
+                "Thotiana in desc] (full mashup) - The Marias - No one noticed, Blueface, full"
             ]
         },
     ]

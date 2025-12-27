@@ -6,7 +6,7 @@ from alive_progress import config_handler
 import logging
 import asyncio
 import argparse
-import discogs_client
+import threading
 import sys
 import os
 from pathlib import Path
@@ -91,78 +91,60 @@ class CLIOrchestrator():
         # slskd init
         SLSKD_API_KEY = os.getenv("SLSKD_API_KEY")
         if SLSKD_API_KEY:
-            self._bringup_slskd_docker_container()
             self._soulseek_downloader = SoulseekDownloader(SLSKD_API_KEY)
             assert self._soulseek_downloader is not None
         else:
             raise Exception("You need to set SLSKD_API_KEY in your .env file")
         
         # create new db session and call different code depending on args
-        async with self._db_session_maker() as session:
-            async with self._soulseek_downloader as soulseek_downloader:
-                self._local_synchronizer = LocalSynchronizer(session)
-                self._spotify_synchronizer = SpotifySynchronizer(session, self._spotify_client)
-                self._download_orchestrator = DownloadOrchestrator(self._soulseek_downloader, self._spotify_client, self._spotify_synchronizer, session, self._app_params)
-
-                if DROP_DATABASE:
-                    input("Warning: This will drop all tables in the database. Press enter to continue...")
-                    async with self._db_engine.begin() as conn:
-                        await conn.run_sync(lambda sync_conn: Base.metadata.drop_all(sync_conn))
-                        await conn.run_sync(lambda sync_conn: Base.metadata.create_all(sync_conn))
-                # else:
-                #     await self._local_synchronizer.add_local_library_to_db(self._app_params.output_path, self._app_params.valid_music_extensions)
-
-                # manual way to add a new local track to the database
-                if NEW_TRACK_FILEPATH:
-                    await self._local_synchronizer.add_local_track_to_db(NEW_TRACK_FILEPATH)
-
-                # attempts a soulseek then youtube download for the given search query
-                if SEARCH_QUERY:
-                    await self._download_orchestrator.download_track(search_query=SEARCH_QUERY, update_db=True)
-
-                # gets all playlists from spotify, adds them to the database, then downloads each track
-                if DOWNLOAD_ALL_PLAYLISTS:
-                    await self._spotify_synchronizer.update_db_with_all_playlists()
-                    await self._download_orchestrator.download_all_playlists()
-
-                # downloads all the users liked songs from spotify
-                if DOWNLOAD_LIKED:
-                    await self._spotify_synchronizer.update_db_with_spotify_liked_tracks()
-                    await self._download_orchestrator.download_liked_songs()
-                
-                # if a playlist url is provided, download the playlist
-                if SPOTIFY_PLAYLIST_URL:
-                    playlist_id = self._spotify_client.extract_playlist_id_from_url(SPOTIFY_PLAYLIST_URL)
-                    playlist_metadata = await self._spotify_client.get_playlist_info(playlist_id)
-
-                    if playlist_metadata:
-                        playlist_row = await self._spotify_synchronizer.update_db_with_spotify_playlist(playlist_metadata)
-                        await self._download_orchestrator.download_playlist(playlist_row.id)
-
-    def _bringup_slskd_docker_container(self):
-        client = docker.from_env()
-        client.images.pull("slskd/slskd:latest")
-    
         try:
-            self._slskd_docker_container = client.containers.get("slskd")
-        except docker.errors.NotFound:
-            self._slskd_docker_container = client.containers.run(
-                "slskd/slskd:latest",
-                name="slskd",
-                detach=True,
-                ports={
-                    "5030": 5030, 
-                    "5031": 5031, 
-                    "50300": 50300
-                },
-                environment={
-                    "SLSKD_REMOTE_CONFIGURATION": "true"
-                },
-                volumes={
-                    str(Path.cwd() / "assets"): {"bind": "/app", "mode": "rw"}
-                },
-                restart_policy={"Name": "unless-stopped"} # type: ignore
-            )
+            async with self._db_session_maker() as session:
+                async with self._soulseek_downloader as soulseek_downloader:
+                    self._local_synchronizer = LocalSynchronizer(session)
+                    self._spotify_synchronizer = SpotifySynchronizer(session, self._spotify_client)
+                    self._download_orchestrator = DownloadOrchestrator(self._soulseek_downloader, self._spotify_client, self._spotify_synchronizer, session, self._app_params)
+
+                    if DROP_DATABASE:
+                        input("Warning: This will drop all tables in the database. Press enter to continue...")
+                        async with self._db_engine.begin() as conn:
+                            await conn.run_sync(lambda sync_conn: Base.metadata.drop_all(sync_conn))
+                            print("Dropped all tables in the database.")
+                            await conn.run_sync(lambda sync_conn: Base.metadata.create_all(sync_conn))
+                            print("Recreated all tables in the database.")
+                    # else:
+                    #     await self._local_synchronizer.add_local_library_to_db(self._app_params.output_path, self._app_params.valid_music_extensions)
+
+                    # manual way to add a new local track to the database
+                    if NEW_TRACK_FILEPATH:
+                        await self._local_synchronizer.add_local_track_to_db(NEW_TRACK_FILEPATH)
+
+                    # attempts a soulseek then youtube download for the given search query
+                    if SEARCH_QUERY:
+                        await self._download_orchestrator.download_track(search_query=SEARCH_QUERY, update_db=True)
+
+                    # gets all playlists from spotify, adds them to the database, then downloads each track
+                    if DOWNLOAD_ALL_PLAYLISTS:
+                        await self._spotify_synchronizer.update_db_with_all_playlists()
+                        await self._download_orchestrator.download_all_playlists()
+
+                    # downloads all the users liked songs from spotify
+                    if DOWNLOAD_LIKED:
+                        await self._spotify_synchronizer.update_db_with_spotify_liked_tracks()
+                        await self._download_orchestrator.download_liked_songs()
+                    
+                    # if a playlist url is provided, download the playlist
+                    if SPOTIFY_PLAYLIST_URL:
+                        playlist_id = self._spotify_client.extract_playlist_id_from_url(SPOTIFY_PLAYLIST_URL)
+                        playlist_metadata = await self._spotify_client.get_playlist_info(playlist_id)
+
+                        if playlist_metadata:
+                            playlist_row = await self._spotify_synchronizer.update_db_with_spotify_playlist(playlist_metadata)
+                            await self._download_orchestrator.download_playlist(playlist_row.id)
+        finally:
+            try:
+                await self._cleanup()
+            except Exception as e:
+                logger.exception(f"Error during cleanup: {e}")
 
     def _parse_cmdline_args(self) -> argparse.Namespace:
         """creates an argparse parser, adds all the arguments, and updates _app_params with parsed values. returns the args"""
@@ -257,3 +239,37 @@ class CLIOrchestrator():
 
         self._update_last_line(f"🌐 Soulseek search finished. Query: {event.search_query} | Relevant files found: {event.num_relevant_files}\n")
 
+    async def _cleanup(self) -> None:
+        """
+        Ensure UI elements and external clients are closed so the process can exit cleanly.
+        """
+
+        # stop spinner task and wait for it to finish
+        self._spinner_running = False
+        if self._spinner_task:
+            try:
+                await self._spinner_task
+            except asyncio.CancelledError:
+                pass
+            finally:
+                self._spinner_task = None
+
+        # close alive_progress bar contexts if they remain open
+        if self._download_bar_ctx:
+            self._download_bar_ctx.__exit__(None, None, None)
+            self._download_bar = None
+            self._download_bar_ctx = None
+
+        # dispose of the database engine
+        if getattr(self, "_db_engine", None) is not None:
+            result = self._db_engine.dispose()
+            if asyncio.iscoroutine(result):
+                await result
+
+        # shutdown default executor to clean up threads
+        loop = asyncio.get_running_loop()
+        await loop.shutdown_default_executor()
+
+        remaining = threading.enumerate()
+        if len(remaining) > 1:
+            logger.debug("Remaining threads at shutdown: %s", [t.name for t in remaining])

@@ -149,6 +149,8 @@ class SoulseekDownloader:
 
                     return final_filepath
         
+        except asyncio.CancelledError:
+            raise
         except httpx.HTTPStatusError as e:
             logger.error(f"Soulseek API error: {e}")
             return None
