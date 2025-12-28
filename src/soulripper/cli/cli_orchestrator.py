@@ -7,11 +7,11 @@ import logging
 import asyncio
 import argparse
 import threading
+import platform
+import subprocess
+import httpx
 import sys
 import os
-from pathlib import Path
-import docker
-import docker.errors
 
 from soulripper.database import Base, LocalSynchronizer, SpotifySynchronizer
 from soulripper.utils import AppParams
@@ -91,8 +91,22 @@ class CLIOrchestrator():
         # slskd init
         SLSKD_API_KEY = os.getenv("SLSKD_API_KEY")
         if SLSKD_API_KEY:
+            # check if slskd is running, if not start it
+            try:
+                async with httpx.AsyncClient(timeout=1.0) as client:
+                    resp = await client.get("http://localhost:5030/")
+                    resp.raise_for_status()
+            except Exception as e:
+                logger.info("starting slskd...")
+                process = await asyncio.create_subprocess_exec(
+                    "slskd",
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    stdin=subprocess.DEVNULL,
+                )
+                await process.wait()
+
             self._soulseek_downloader = SoulseekDownloader(SLSKD_API_KEY)
-            assert self._soulseek_downloader is not None
         else:
             raise Exception("You need to set SLSKD_API_KEY in your .env file")
         
