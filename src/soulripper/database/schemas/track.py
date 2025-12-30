@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import List, Tuple, Optional
 
 @dataclass
@@ -19,7 +19,7 @@ class TrackData:
     filepath:       Optional[str]                               = None
     spotify_id:     Optional[str]                               = None
     title:          Optional[str]                               = None
-    artists:        Optional[List[Tuple[str, Optional[str]]]]   = None
+    artists:        List[Tuple[str, Optional[str]]]             = field(default_factory=list)
     album:          Optional[str]                               = None
     release_date:   Optional[str]                               = None
     explicit:       Optional[bool]                              = None

@@ -9,7 +9,7 @@ class Artists(Base):
     __tablename__ = "artists"
 
     id:                 Mapped[int] = mapped_column(sqla.Integer, primary_key=True)
-    name:               Mapped[str] = mapped_column(sqla.String, nullable=False)
+    name:               Mapped[str] = mapped_column(sqla.String, nullable=False, unique=True)
     spotify_id:         Mapped[Optional[str]] = mapped_column(sqla.String, nullable=True, unique=True)
     row_created_at:     Mapped[sqla.DateTime] = mapped_column(sqla.DateTime, nullable=False, server_default=sqla.func.now())
     row_updated_at:     Mapped[sqla.DateTime] = mapped_column(sqla.DateTime, nullable=False, server_default=sqla.func.now(), onupdate=sqla.func.now())
