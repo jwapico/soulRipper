@@ -17,7 +17,6 @@ class Playlists(Base):
     playlist_tracks       = relationship("PlaylistTracks", back_populates="playlist", cascade="all, delete-orphan")
 
     __table_args__ = (
-        sqla.Index("idx_playlists_spotify_id", "spotify_id"),
         sqla.Index("idx_playlists_name", sqla.text("LOWER(name)")),
     )
 

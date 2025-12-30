@@ -49,6 +49,111 @@ class TracksRepository():
 
         return track
     
+    @classmethod 
+    async def add_track_artists(cls, sql_session: AsyncSession, track_row: Tracks,  artists: List[Tuple[str, Optional[str]]]):
+        for name, spotify_id in artists:
+            stmt = sqla.select(Artists).where(Artists.name == name)
+            result = await sql_session.execute(stmt)
+            existing_artist = result.scalars().first()
+
+            # if there is not already an Artists row with an identical name, create a new row and assoc
+            if existing_artist is None:
+                new_artist = Artists(name=name, spotify_id=spotify_id)
+                sql_session.add(new_artist)
+                await sql_session.flush()
+                track_artist_assoc = TrackArtists(track_id=track_row.id, artist_id=new_artist.id)
+                sql_session.add(track_artist_assoc)
+            else:
+                # if there is an existing Artist with an idenctical name, create an assoc and update the spotify_id if necessary
+                track_artist_assoc = TrackArtists(track_id=track_row.id, artist_id=existing_artist.id)
+                sql_session.add(track_artist_assoc)
+                if existing_artist.spotify_id is None and spotify_id is not None:
+                    existing_artist.spotify_id = spotify_id
+
+            await sql_session.flush()
+
+    @classmethod
+    async def bulk_add_tracks(cls, sql_session: AsyncSession, track_data_list: List[TrackData]) -> None:
+        """
+        Adds a set of tracks to the Tracks table in an efficient manner
+
+        Args: 
+            sql_session (sqlalchemy.ext.asyncio.AsyncSession): Your open SQLAlchemy Session
+            track_data_list (Set[TrackData]): The set of TrackData you want to add
+
+        Returns:
+            None
+        """
+        # get all of the existing spotify ids of tracks in the database so we can make sure we don't re add them
+        stmt = sqla.select(Tracks.spotify_id).where(Tracks.spotify_id.isnot(None))
+        result = await sql_session.execute(stmt)
+        existing_spotify_ids = {sid for (sid,) in result.all()}
+
+        # make a with keys holding unique information on title, album, and filepath so we can make sure we don't re add local tracks 
+        stmt = sqla.select(Tracks.title, Tracks.album, Tracks.filepath).where(Tracks.spotify_id.is_(None))
+        result = await sql_session.execute(stmt)
+        existing_local_tracks = {(track.title, track.album, track.filepath) for track in result.all()}
+
+        # build a list of new_tracks which are not already present in the database/found in the dicts above 
+        new_tracks: List[TrackData] = []
+        for track_data in track_data_list:
+            if track_data.spotify_id is None:
+                key = (track_data.title, track_data.album, track_data.filepath)
+                if key not in existing_local_tracks:
+                    existing_local_tracks.add(key)
+                    new_tracks.append(track_data)
+            else:
+                if track_data.spotify_id not in existing_spotify_ids:
+                    existing_spotify_ids.add(track_data.spotify_id)
+                    new_tracks.append(track_data)
+
+        # create a dict of all artists with their names as keys so we can make sure we aren't adding duplicates 
+        stmt = sqla.select(Artists)
+        result = await sql_session.execute(stmt)
+        existing_artists = {artist.name: artist for artist in result.scalars().all()}
+
+        # for each new track, create and append a new orm Track object
+        orm_tracks = []
+        for track_data in new_tracks:
+            track = Tracks(
+                spotify_id=track_data.spotify_id,
+                filepath=track_data.filepath,
+                title=track_data.title,
+                album=track_data.album,
+                release_date=track_data.release_date,
+                explicit=track_data.explicit,
+                comments=track_data.comments
+            )
+
+            orm_tracks.append(track)
+
+        # add and flush the new tracks so we can access their ids in the artist assoc creation process
+        sql_session.add_all(orm_tracks)
+        await sql_session.flush()
+
+        # for each track, we also need to create a new artist association if the artist doesn't already exist for each artist
+        orm_artist_assocs = []
+        for i, track in enumerate(orm_tracks):
+            track_data = new_tracks[i]
+            if track_data.artists:
+                for name, artist_spotify_id in track_data.artists:
+                    artist = existing_artists.get(name)
+                    
+                    # create and append a new orm TrackArtists assoc if the artist wasn't already in the database
+                    if artist is None:
+                        artist = Artists(name=name, spotify_id=artist_spotify_id)
+                        sql_session.add(artist)
+                        await sql_session.flush()
+                        existing_artists[name] = artist
+
+                    assoc = TrackArtists(track_id=track.id, artist_id=artist.id)
+                    orm_artist_assocs.append(assoc)
+
+        # now add everything in one shot
+        sql_session.add_all(orm_artist_assocs)
+        await sql_session.flush()
+        logger.info(f"Inserted {len(new_tracks)} new tracks.")
+
     @classmethod
     async def modify_track(cls, sql_session: AsyncSession, new_track_data: TrackData, track_id: Optional[int] = None) -> None:
         """
@@ -137,29 +242,6 @@ class TracksRepository():
         stmt = sqla.select(Tracks).where(Tracks.title.ilike(f"%{track_title}%"))
         result = await sql_session.execute(stmt)
         return list(result.scalars().all())
-
-    @classmethod 
-    async def add_track_artists(cls, sql_session: AsyncSession, track_row: Tracks,  artists: List[Tuple[str, Optional[str]]]):
-        for name, spotify_id in artists:
-            stmt = sqla.select(Artists).where(Artists.name == name)
-            result = await sql_session.execute(stmt)
-            existing_artist = result.scalars().first()
-
-            # if there is not already an Artists row with an identical name, create a new row and assoc
-            if existing_artist is None:
-                new_artist = Artists(name=name, spotify_id=spotify_id)
-                sql_session.add(new_artist)
-                await sql_session.flush()
-                track_artist_assoc = TrackArtists(track_id=track_row.id, artist_id=new_artist.id)
-                sql_session.add(track_artist_assoc)
-            else:
-                # if there is an existing Artist with an idenctical name, create an assoc and update the spotify_id if necessary
-                track_artist_assoc = TrackArtists(track_id=track_row.id, artist_id=existing_artist.id)
-                sql_session.add(track_artist_assoc)
-                if existing_artist.spotify_id is None and spotify_id is not None:
-                    existing_artist.spotify_id = spotify_id
-
-            await sql_session.flush()
         
     # TODO: We need a better way of checking for existing tracks when spotify_id and filepath is None
     @classmethod
@@ -183,85 +265,3 @@ class TracksRepository():
 
         result = await session.execute(stmt)
         return result.scalars().first()
-
-    @classmethod
-    async def bulk_add_tracks(cls, sql_session: AsyncSession, track_data_list: List[TrackData]) -> None:
-        """
-        Adds a set of tracks to the Tracks table in an efficient manner
-
-        Args: 
-            sql_session (sqlalchemy.ext.asyncio.AsyncSession): Your open SQLAlchemy Session
-            track_data_list (Set[TrackData]): The set of TrackData you want to add
-
-        Returns:
-            None
-        """
-        # get all of the existing spotify ids of tracks in the database so we can make sure we don't re add them
-        stmt = sqla.select(Tracks.spotify_id).where(Tracks.spotify_id.isnot(None))
-        result = await sql_session.execute(stmt)
-        existing_spotify_ids = {sid for (sid,) in result.all()}
-
-        # make a with keys holding unique information on title, album, and filepath so we can make sure we don't re add local tracks 
-        stmt = sqla.select(Tracks.title, Tracks.album, Tracks.filepath).where(Tracks.spotify_id.is_(None))
-        result = await sql_session.execute(stmt)
-        existing_local_tracks = {(track.title, track.album, track.filepath) for track in result.all()}
-
-        # build a list of new_tracks which are not already present in the database/found in the dicts above 
-        new_tracks: List[TrackData] = []
-        for track_data in track_data_list:
-            if track_data.spotify_id is None:
-                key = (track_data.title, track_data.album, track_data.filepath)
-                if key not in existing_local_tracks:
-                    existing_local_tracks.add(key)
-                    new_tracks.append(track_data)
-            else:
-                if track_data.spotify_id not in existing_spotify_ids:
-                    existing_spotify_ids.add(track_data.spotify_id)
-                    new_tracks.append(track_data)
-
-        # create a dict of all artists with their names as keys so we can make sure we aren't adding duplicates 
-        stmt = sqla.select(Artists)
-        result = await sql_session.execute(stmt)
-        existing_artists = {artist.name: artist for artist in result.scalars().all()}
-
-        # for each new track, create and append a new orm Track object
-        orm_tracks = []
-        for track_data in new_tracks:
-            track = Tracks(
-                spotify_id=track_data.spotify_id,
-                filepath=track_data.filepath,
-                title=track_data.title,
-                album=track_data.album,
-                release_date=track_data.release_date,
-                explicit=track_data.explicit,
-                comments=track_data.comments
-            )
-
-            orm_tracks.append(track)
-
-        # add and flush the new tracks so we can access their ids in the artist assoc creation process
-        sql_session.add_all(orm_tracks)
-        await sql_session.flush()
-
-        # for each track, we also need to create a new artist association if the artist doesn't already exist for each artist
-        orm_artist_assocs = []
-        for i, track in enumerate(orm_tracks):
-            track_data = new_tracks[i]
-            if track_data.artists:
-                for name, artist_spotify_id in track_data.artists:
-                    artist = existing_artists.get(name)
-                    
-                    # create and append a new orm TrackArtists assoc if the artist wasn't already in the database
-                    if artist is None:
-                        artist = Artists(name=name, spotify_id=artist_spotify_id)
-                        sql_session.add(artist)
-                        await sql_session.flush()
-                        existing_artists[name] = artist
-
-                    assoc = TrackArtists(track_id=track.id, artist_id=artist.id)
-                    orm_artist_assocs.append(assoc)
-
-        # now add everything in one shot
-        sql_session.add_all(orm_artist_assocs)
-        await sql_session.flush()
-        logger.info(f"Inserted {len(new_tracks)} new tracks.")

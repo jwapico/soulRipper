@@ -1,5 +1,6 @@
 import sqlalchemy as sqla
 from sqlalchemy.orm import mapped_column, Mapped, relationship
+from typing import Optional
 
 from .base import Base
 
@@ -10,7 +11,7 @@ class TrackArtists(Base):
     id:                 Mapped[int] = mapped_column(sqla.Integer, primary_key=True, autoincrement=True)
     track_id:           Mapped[int] = mapped_column(sqla.Integer, sqla.ForeignKey("tracks.id", ondelete="CASCADE"), nullable=False, index=True)
     artist_id:          Mapped[int] = mapped_column(sqla.Integer, sqla.ForeignKey("artists.id", ondelete="CASCADE"), nullable=False, index=True)
-    is_primary_artist:  Mapped[bool] = mapped_column(sqla.Boolean, default=True, nullable=False)
+    is_primary_artist:  Mapped[Optional[bool]] = mapped_column(sqla.Boolean, nullable=True)
     row_created_at:     Mapped[sqla.DateTime] = mapped_column(sqla.DateTime, nullable=False, server_default=sqla.func.now())
     row_updated_at:     Mapped[sqla.DateTime] = mapped_column(sqla.DateTime, nullable=False, server_default=sqla.func.now(), onupdate=sqla.func.now())
     track             = relationship("Tracks", back_populates="track_artists")

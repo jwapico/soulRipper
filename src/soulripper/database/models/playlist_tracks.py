@@ -19,7 +19,6 @@ class PlaylistTracks(Base):
     track             = relationship("Tracks", back_populates="playlist_tracks")
 
     __table_args__ = (
-        sqla.UniqueConstraint('playlist_id', 'track_id', name='uq_playlist_track'),
         sqla.CheckConstraint("position >= 0", name="ck_playlist_tracks_position_nonnegative")
     )
 
