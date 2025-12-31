@@ -33,6 +33,7 @@
                 "--playlist-url",
                 // "https://open.spotify.com/playlist/47uFYjiMl6zRb0gZcy0Nas?si=41b5a57749e3482e",
                 "https://open.spotify.com/playlist/5tPjgtonsvHqczRc8XR5cR?si=236108aedd6a49cf",
+                // "https://open.spotify.com/playlist/5NUtKAP5hs5lykCkC0cW0E?si=0aefef20c2cf400f&pt=de30ee8ae7cc016cbf200d13379369c8",
                 "--output-path",
                 "/home/soulripper/debug/my_playlist"
             ]

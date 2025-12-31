@@ -39,7 +39,6 @@ class SpotifySynchronizer():
 
         return playlist_row
 
-    # TODO: this function takes a while to run, we should find a way to check if there any changes before calling it
     async def update_db_with_spotify_liked_tracks(self) -> Optional[Playlists]:
         # get the TrackData for the users liked tracks
         liked_tracks_data = await self._spotify_client.get_liked_tracks()

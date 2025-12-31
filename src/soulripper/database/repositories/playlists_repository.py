@@ -63,19 +63,27 @@ class PlaylistsRepository():
             None
         """
 
-        playlist_track_data.sort(key=lambda x: x[1])
+        # TODO: if playlist order changes we get duplicate entries
 
         # for each track in the playlist, add it to the Tracks table and create an association in the PlaylistTracks table
         for pos, (track_data, date_added) in enumerate(playlist_track_data):
             new_track: Tracks = await TracksRepository.add_track(sql_session, track_data)
-            sql_session.add(
-                PlaylistTracks(
-                    playlist_id=playlist_row.id,
-                    track_id=new_track.id,
-                    added_at=date_added,
-                    position=pos
+
+            existing_assocs = (await sql_session.execute(sqla.select(PlaylistTracks).where(
+                (PlaylistTracks.playlist_id == playlist_row.id) &
+                (PlaylistTracks.track_id == new_track.id) &
+                (PlaylistTracks.position == pos)
+            ))).all()
+
+            if not existing_assocs:
+                sql_session.add(
+                    PlaylistTracks(
+                        playlist_id=playlist_row.id,
+                        track_id=new_track.id,
+                        added_at=date_added,
+                        position=pos
+                    )
                 )
-            )
 
         await sql_session.flush()
 

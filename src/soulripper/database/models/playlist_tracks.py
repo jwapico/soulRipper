@@ -19,7 +19,7 @@ class PlaylistTracks(Base):
     track             = relationship("Tracks", back_populates="playlist_tracks")
 
     __table_args__ = (
-        sqla.CheckConstraint("position >= 0", name="ck_playlist_tracks_position_nonnegative"),
+        sqla.UniqueConstraint("playlist_id", "track_id", "position", name="uq_playlist_track_position"),
     )
 
     def __repr__(self):
