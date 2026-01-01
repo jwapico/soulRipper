@@ -7,13 +7,12 @@ import logging
 import asyncio
 import argparse
 import threading
-import platform
 import subprocess
 import httpx
 import sys
 import os
 
-from soulripper.database import Base, LocalSynchronizer, SpotifySynchronizer
+from soulripper.database import Base, LocalSynchronizer, SpotifySynchronizer, PlaylistsRepository
 from soulripper.utils import AppParams
 from soulripper.api_clients import SpotifyClient, SpotifyUserData
 from soulripper.downloaders import (
@@ -255,8 +254,13 @@ class CLIOrchestrator():
 
     async def _cleanup(self) -> None:
         """
-        Ensure UI elements and external clients are closed so the process can exit cleanly.
+        Ensure UI elements and external clients are closed and the DB is cleaned so the process can exit.
         """
+
+        # clean up orphaned tracks and artists from the database
+        async with self._db_session_maker() as session:
+            await PlaylistsRepository.cleanup_orphans(session)
+            await session.commit()
 
         # stop spinner task and wait for it to finish
         self._spinner_running = False

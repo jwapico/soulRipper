@@ -3,6 +3,7 @@ from typing import Optional, List, Tuple
 import datetime
 import sqlalchemy as sqla
 from sqlalchemy.ext.asyncio import AsyncSession
+import hashlib
 
 from ..models import Playlists, PlaylistTracks, Tracks, Artists, TrackArtists
 from ..schemas import TrackData, PlaylistData
@@ -63,27 +64,29 @@ class PlaylistsRepository():
             None
         """
 
-        # TODO: if playlist order changes we get duplicate entries
+        # if there are no changes in the playlist return
+        new_hash = await cls.generate_playlist_tracks_hash([td for td, _ in playlist_track_data])
+        if new_hash == playlist_row.playlist_hash:
+            logger.info(f"No changes detected in playlist '{playlist_row.name}' (ID: {playlist_row.id}), skipping track addition")
+            return
+        
+        # delete the old associations
+        await sql_session.execute(sqla.delete(PlaylistTracks).where(PlaylistTracks.playlist_id == playlist_row.id))
 
         # for each track in the playlist, add it to the Tracks table and create an association in the PlaylistTracks table
         for pos, (track_data, date_added) in enumerate(playlist_track_data):
             new_track: Tracks = await TracksRepository.add_track(sql_session, track_data)
 
-            existing_assocs = (await sql_session.execute(sqla.select(PlaylistTracks).where(
-                (PlaylistTracks.playlist_id == playlist_row.id) &
-                (PlaylistTracks.track_id == new_track.id) &
-                (PlaylistTracks.position == pos)
-            ))).all()
-
-            if not existing_assocs:
-                sql_session.add(
-                    PlaylistTracks(
-                        playlist_id=playlist_row.id,
-                        track_id=new_track.id,
-                        added_at=date_added,
-                        position=pos
-                    )
+            sql_session.add(
+                PlaylistTracks(
+                    playlist_id=playlist_row.id,
+                    track_id=new_track.id,
+                    added_at=date_added,
+                    position=pos
                 )
+            )
+
+        playlist_row.playlist_hash = new_hash
 
         await sql_session.flush()
 
@@ -156,7 +159,7 @@ class PlaylistsRepository():
             sqla.select(
                 Tracks,
                 Artists,
-                PlaylistTracks.track_id,
+                PlaylistTracks.id,
             )
             .join(Tracks, PlaylistTracks.track_id == Tracks.id)
             .outerjoin(TrackArtists, TrackArtists.track_id == Tracks.id)
@@ -234,6 +237,7 @@ class PlaylistsRepository():
         result = await sql_session.execute(stmt)
         playlist_row = result.scalar_one_or_none()
         tracks = await cls.get_track_data(sql_session, playlist_id)
+        tracks_hash = await cls.generate_playlist_tracks_hash(tracks)
 
         if playlist_row:
             return PlaylistData(
@@ -241,5 +245,66 @@ class PlaylistsRepository():
                 spotify_id=playlist_row.spotify_id,
                 name=playlist_row.name,
                 description=playlist_row.description,
-                tracks=tracks
+                tracks=tracks,
+                playlist_hash=tracks_hash
             )
+        
+    @classmethod
+    async def generate_playlist_tracks_hash(cls, playlist_data: List[TrackData]) -> str:
+        """
+        Generates a hash string for a playlist based on its tracks
+
+        Args:
+            playlist_data (List[TrackData]): The list of TrackData objects in the playlist
+
+        Returns:
+            str: A hash string representing the playlist's tracks
+        """
+
+        h = hashlib.sha256()
+
+        for track in playlist_data:
+            if track.spotify_id:
+                token = f"spotify:{track.spotify_id}"
+            elif track.filepath:
+                token = f"path:{track.filepath}"
+            else:
+                token = f"meta:{track.title}|{track.album}"
+
+            h.update(token.encode("utf-8"))
+            h.update(b"\0")
+
+        return h.hexdigest()
+    
+    @classmethod
+    async def cleanup_orphans(cls, sql_session: AsyncSession) -> None:
+        """
+        Removes tracks and artists that are no longer referenced anywhere.
+
+        Args:
+            sql_session (sqlalchemy.ext.asyncio.AsyncSession): Your open SQLAlchemy
+
+        Returns:
+            None
+        """
+
+        # delete orphan tracks (no playlists reference them)
+        await sql_session.execute(
+            sqla.delete(Tracks).where(
+                ~sqla.exists().where(
+                    PlaylistTracks.track_id == Tracks.id
+                )
+            )
+        )
+
+        # delete orphan artists (no tracks reference them)
+        await sql_session.execute(
+            sqla.delete(Artists).where(
+                ~sqla.exists().where(
+                    TrackArtists.artist_id == Artists.id
+                )
+            )
+        )
+
+        await sql_session.flush()
+

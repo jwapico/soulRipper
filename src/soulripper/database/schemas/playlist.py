@@ -10,6 +10,7 @@ class PlaylistData:
     name: Optional[str]
     description: Optional[str]
     tracks: Optional[List[TrackData]]
+    playlist_hash: Optional[str]
 
     def __repr__(self):
         return (
