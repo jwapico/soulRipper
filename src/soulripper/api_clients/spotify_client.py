@@ -150,10 +150,48 @@ class SpotifyClient():
     async def get_track(self, id: str) -> Optional[Dict]:
         return await asyncio.to_thread(self._spotipy_client.track, id)
     
-    async def get_user_info(self) -> Optional[Tuple[str, str]]:
-        profile = await asyncio.to_thread(self._spotipy_client.current_user)
+    async def create_playlist(self, tracks: Optional[List[str]], playlist_name: str, playlist_desc: Optional[str], public: bool = False, collaborative: bool = False) -> int: 
+        result = await asyncio.to_thread(
+            self._spotipy_client.user_playlist_create, 
+            user=self._USER_ID, 
+            name=playlist_name, 
+            public=public, 
+            collaborative=collaborative, 
+            description=playlist_desc or ""
+        )
 
-        if profile:
-            return (profile["id"], profile["display_name"])
+        if result is None:
+            logger.error("Error when creating the playlist, result is None")
+            return -1
 
-    # async def
+        if tracks:
+            await asyncio.to_thread(
+                self._spotipy_client.playlist_add_items, 
+                playlist_id=result["id"], 
+                items=tracks
+            )
+
+        return result["id"]
+    
+    async def add_track_to_playlist(self, playlist_id: str, track_uri: str, pos: int):
+        await asyncio.to_thread(
+            self._spotipy_client.playlist_add_items,
+            playlist_id=playlist_id, 
+            items=[track_uri], 
+            position=pos
+        )
+        
+    async def change_playlist_track_index(self, playlist_id: int, prev_idx: int, new_idx: int):
+        await asyncio.to_thread(
+            self._spotipy_client.playlist_reorder_items,
+            playlist_id=playlist_id, 
+            range_start=prev_idx, 
+            insert_before=new_idx
+        )
+        
+    async def remove_track_from_playlist(self, playlist_id, track_uri: str, track_idx: int):
+        await asyncio.to_thread(
+            self._spotipy_client.playlist_remove_specific_occurrences_of_items, 
+            playlist_id=playlist_id, 
+            items=[{"uri": track_uri, "positions": [track_idx]}]
+        )

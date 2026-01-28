@@ -71,6 +71,7 @@ class CLIOrchestrator():
         DOWNLOAD_ALL_PLAYLISTS = args.download_all_playlists
         NEW_TRACK_FILEPATH = args.add_track
         DROP_DATABASE = args.drop_database
+        DEBUG = args.debug
 
         # spotify init
         SPOTIFY_CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID")
@@ -153,6 +154,10 @@ class CLIOrchestrator():
                         if playlist_metadata:
                             playlist_row = await self._spotify_synchronizer.update_db_with_spotify_playlist(playlist_metadata)
                             await self._download_orchestrator.download_playlist(playlist_row.id)
+
+                    if DEBUG:
+                        await self._spotify_client.create_playlist([], "test playlist", "test desc")
+
         finally:
             try:
                 await self._cleanup()
@@ -173,6 +178,7 @@ class CLIOrchestrator():
         parser.add_argument("--max-retries", type=int, default=5, help="The maximum number of retries for downloading a track")
         parser.add_argument("--add-track", type=str, help="Add a track to the database - provide the filepath")
         parser.add_argument("--yt", action="store_true", help="Download exclusively from Youtube")
+        parser.add_argument("--debug", action="store_true", help="Runs debugging code")
 
         args = parser.parse_args()
 

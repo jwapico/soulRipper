@@ -23,7 +23,7 @@ audio:
     - ".wav"
 
 privacy:
-  spotify_scope: "user-library-read user-read-private playlist-read-collaborative playlist-read-private"
+  spotify_scope: "user-library-read user-read-private playlist-read-collaborative playlist-read-private playlist-modify-private playlist-modify-public"
 
 debug:
   log: True                                                           # unimplemented

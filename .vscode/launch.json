@@ -83,5 +83,16 @@
                 "Thotiana in desc] (full mashup) - The Marias - No one noticed, Blueface, full"
             ]
         },
+        {
+            "name": "--debug",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "soulripper.main",
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "args": [
+                "--debug",
+            ]
+        },
     ]
 }
