@@ -16,6 +16,7 @@ class Playlists(Base):
     row_created_at:         Mapped[sqla.DateTime] = mapped_column(sqla.DateTime, nullable=False, server_default=sqla.func.now())
     row_updated_at:         Mapped[sqla.DateTime] = mapped_column(sqla.DateTime, nullable=False, server_default=sqla.func.now(), onupdate=sqla.func.now())
     playlist_tracks       = relationship("PlaylistTracks", back_populates="playlist", cascade="all, delete-orphan")
+    playlist_tags         = relationship("PlaylistTags", back_populates="playlist", cascade="all, delete-orphan")
 
     __table_args__ = (
         sqla.Index("idx_playlists_name", sqla.text("LOWER(name)")),
