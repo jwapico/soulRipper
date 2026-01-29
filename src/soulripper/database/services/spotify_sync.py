@@ -27,11 +27,11 @@ class SpotifySynchronizer():
         logger.info(f"Updating database with tracks from playlist {spotify_playlist_metadata['name']}...")
 
         # get the TrackData for the playlist
-        playlist_tracks = await self._spotify_client.get_playlist_tracks(spotify_playlist_metadata['id'])
+        playlist_tracks = await self._spotify_client.get_playlist_tracks(spotify_playlist_metadata["id"])
         relevant_tracks_data: List[Tuple[TrackData, datetime.datetime]] = self.get_track_data_from_playlist(playlist_tracks)
 
         # create the playlist row
-        playlist_row = await PlaylistsRepository.add_playlist(self._sql_session, spotify_playlist_metadata['id'], spotify_playlist_metadata['name'], spotify_playlist_metadata['description'])
+        playlist_row = await PlaylistsRepository.add_playlist(self._sql_session, spotify_playlist_metadata["id"], spotify_playlist_metadata["name"], spotify_playlist_metadata["description"])
 
         # add the track data to the playlist and commit
         await PlaylistsRepository.add_tracks_to_playlist(self._sql_session, relevant_tracks_data, playlist_row)

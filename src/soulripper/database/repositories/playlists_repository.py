@@ -4,8 +4,10 @@ import datetime
 import sqlalchemy as sqla
 from sqlalchemy.ext.asyncio import AsyncSession
 import hashlib
+import json
+import html
 
-from ..models import Playlists, PlaylistTracks, Tracks, Artists, TrackArtists
+from ..models import Playlists, PlaylistTracks, Tracks, Artists, TrackArtists, Tags, PlaylistTags
 from ..schemas import TrackData, PlaylistData
 from .tracks_repository import TracksRepository
 
@@ -27,6 +29,7 @@ class PlaylistsRepository():
             Playlists: The new Playlists row
         """
 
+        description = html.unescape(description)
         existing_playlist = None
 
         if spotify_id is not None:
@@ -37,16 +40,19 @@ class PlaylistsRepository():
         if existing_playlist:
             logger.info(f"Playlist with spotify_id: {spotify_id} or name: {name} already exists in the database, returning existing playlist")
             return existing_playlist
+        
 
-        # create, add, flush, and return the new playlist
-        new_playlist = Playlists(
-            spotify_id=spotify_id, 
-            name=name, 
-            description=description
-        )
-
+        # create new playlist add tags and return
+        new_playlist = Playlists(spotify_id=spotify_id, name=name, description=description)
         sql_session.add(new_playlist)
         await sql_session.flush()
+
+        # tags are written by user in the description of the spotify playlist, specified as 'Tags: ["tag1", "tag2"]'
+        if "tags:" in description.lower():
+            start_tags_idx = description.lower().index("tags: ") + len("tags: ")
+            end_tags_idx = start_tags_idx + description[start_tags_idx:].index("]") + 1
+            playlist_tags = json.loads(description[start_tags_idx:end_tags_idx])
+            await cls.add_playlist_tags(sql_session, new_playlist.id, playlist_tags)
 
         return new_playlist
 
@@ -89,6 +95,43 @@ class PlaylistsRepository():
         playlist_row.playlist_hash = new_hash
 
         await sql_session.flush()
+
+    @classmethod
+    async def add_playlist_tags(cls, sql_session: AsyncSession, playlist_id: int, tags: List[str]) -> List[int]:
+        """
+        Adds a list of tags to a playlist
+
+        Args:
+            sql_session (sqlalchemy.ext.asyncio.AsyncSession): Your open SQLALchemy Session
+            playlist_id (int): The ID of the playlist to attribute the tags to
+            tags (List[str]): The tags you want to add to the playlist
+        
+        Returns:
+            List[Int]: A list of the tag ids 
+        """
+
+        # select existing tags by name
+        result = await sql_session.execute(
+            sqla.select(Tags).where(Tags.name.in_(tags))
+        )
+        existing_tags = {tag.name: tag for tag in result.scalars().all()}
+
+        # create and store new tags
+        new_tags = []
+        for name in tags:
+            if name not in existing_tags:
+                new_tag = Tags(name=name)
+                sql_session.add(new_tag)
+                new_tags.append(new_tag)
+                await sql_session.flush()
+
+        # collect new and existing tags, add the PlaylistTag assocs, and return the tag ids
+        all_tags = {**existing_tags, **{t.name: t for t in new_tags}}
+        playlist_tag_assocs = [PlaylistTags(playlist_id=playlist_id, tag_id=tag.id) for tag in all_tags.values()]
+        sql_session.add_all(playlist_tag_assocs)     
+        await sql_session.flush()
+
+        return [tag.id for tag in all_tags.values()]
 
     @classmethod
     async def get_playlist_by_spotify_id(cls, sql_session: AsyncSession, spotify_id: str) -> Optional[Playlists]:
@@ -249,6 +292,11 @@ class PlaylistsRepository():
                 playlist_hash=tracks_hash
             )
         
+    async def get_unsorted_tracks(self) -> List[Tracks]:
+        """
+        Returns tracks that are not in any playlists with the 'genre' tag
+        """
+    
     @classmethod
     async def generate_playlist_tracks_hash(cls, playlist_data: List[TrackData]) -> str:
         """
