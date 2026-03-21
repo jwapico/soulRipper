@@ -191,4 +191,4 @@ assets/soul.db-journal
 .DS_Store
 debug/*
 slskd*
-.vscode/
+./vscode
