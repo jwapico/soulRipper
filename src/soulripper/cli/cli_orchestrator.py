@@ -6,12 +6,8 @@ from alive_progress import config_handler
 import logging
 import asyncio
 import argparse
-import discogs_client
 import sys
 import os
-from pathlib import Path
-import docker
-import docker.errors
 
 from soulripper.database import Base, LocalSynchronizer, SpotifySynchronizer
 from soulripper.utils import AppParams
@@ -91,7 +87,6 @@ class CLIOrchestrator():
         # slskd init
         SLSKD_API_KEY = os.getenv("SLSKD_API_KEY")
         if SLSKD_API_KEY:
-            self._bringup_slskd_docker_container()
             self._soulseek_downloader = SoulseekDownloader(SLSKD_API_KEY)
             assert self._soulseek_downloader is not None
         else:
@@ -138,31 +133,6 @@ class CLIOrchestrator():
                     if playlist_metadata:
                         playlist_row = await self._spotify_synchronizer.update_db_with_spotify_playlist(playlist_metadata)
                         await self._download_orchestrator.download_playlist(playlist_row.id)
-
-    def _bringup_slskd_docker_container(self):
-        client = docker.from_env()
-        client.images.pull("slskd/slskd:latest")
-    
-        try:
-            self._slskd_docker_container = client.containers.get("slskd")
-        except docker.errors.NotFound:
-            self._slskd_docker_container = client.containers.run(
-                "slskd/slskd:latest",
-                name="slskd",
-                detach=True,
-                ports={
-                    "5030": 5030, 
-                    "5031": 5031, 
-                    "50300": 50300
-                },
-                environment={
-                    "SLSKD_REMOTE_CONFIGURATION": "true"
-                },
-                volumes={
-                    str(Path.cwd() / "assets"): {"bind": "/app", "mode": "rw"}
-                },
-                restart_policy={"Name": "unless-stopped"} # type: ignore
-            )
 
     def _parse_cmdline_args(self) -> argparse.Namespace:
         """creates an argparse parser, adds all the arguments, and updates _app_params with parsed values. returns the args"""
