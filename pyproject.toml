@@ -26,8 +26,6 @@ dependencies = [
   "greenlet",
   "rapidfuzz",
   "httpx",
-  "discogs_client",
-  "docker",
 ]
 
 [project.urls]
