@@ -89,6 +89,7 @@ def extract_app_params(config_filepath: str) -> AppParams:
     SOULSEEK_ONLY = config.get("download_behavior", {}).get("soulseek_only", False)
     YOUTUBE_ONLY = config.get("download_behavior", {}).get("youtube_only", False)
     YOUTUBE_COOKIE_FILEPATH = config.get("paths", {}).get("youtube_cookie_filepath", None)
+    BROWSER = config.get("paths", {}).get("browser", None)
     MAX_DOWNLOAD_RETRIES = config.get("download_behavior", {}).get("max_retries", 5)
     INACTIVE_DOWNLOAD_TIMEOUT = config.get("download_behavior", {}).get("inactive_download_timeout", 10)
     SPOTIFY_SCOPE = config.get("privacy", {}).get("spotify_scope", "user-library-read user-read-private playlist-read-collaborative playlist-read-private")
@@ -120,6 +121,7 @@ def extract_app_params(config_filepath: str) -> AppParams:
         soulseek_only=SOULSEEK_ONLY,
         youtube_only=YOUTUBE_ONLY,
         youtube_cookie_filepath=YOUTUBE_COOKIE_FILEPATH,
+        browser=BROWSER,
         max_download_retries=MAX_DOWNLOAD_RETRIES,
         inactive_download_timeout=INACTIVE_DOWNLOAD_TIMEOUT,
         spotify_scope=SPOTIFY_SCOPE,

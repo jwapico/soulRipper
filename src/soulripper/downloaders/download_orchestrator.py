@@ -55,11 +55,11 @@ class DownloadOrchestrator():
         # download the track from soulseek or youtube
         async with self._download_semaphore:
             if self._app_params.youtube_only:
-                download_path = await download_track_ytdlp(search_query, self._app_params.output_path, self._app_params.youtube_cookie_filepath)
+                download_path = await download_track_ytdlp(search_query, self._app_params.output_path, self._app_params.youtube_cookie_filepath, self._app_params.browser)
             else:
                 download_path = await self._soulseek_downloader.download_track(search_query, self._app_params.output_path, self._app_params.max_download_retries)
                 if download_path is None:
-                    download_path = await download_track_ytdlp(search_query, self._app_params.output_path, self._app_params.youtube_cookie_filepath)
+                    download_path = await download_track_ytdlp(search_query, self._app_params.output_path, self._app_params.youtube_cookie_filepath, self._app_params.browser)
 
         # add a new row to the Tracks table with the new filepath if we got one
         async with self._db_lock:

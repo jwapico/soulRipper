@@ -32,4 +32,4 @@ dependencies = [
 Repository = "https://github.com/jwapico/soulRipper"
 
 [project.scripts]
-soulripper = "soulripper.main:soulrip"
+soulripper = "soulripper.main:main"

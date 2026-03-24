@@ -9,6 +9,7 @@ class AppParams:
     soulseek_only: bool
     youtube_only: bool
     youtube_cookie_filepath: Optional[str]
+    browser: Optional[str]
     max_download_retries: int
     inactive_download_timeout: int
     spotify_scope: str
