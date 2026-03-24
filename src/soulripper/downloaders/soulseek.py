@@ -20,14 +20,15 @@ from .events import (
 
 from .async_slskd_client import AsyncSlsksdClient
 
-from soulripper.utils.file_utils import extract_file_extension, extract_filename
+from soulripper.utils.file_utils import extract_file_extension, extract_filename, AppParams
 
 logger = logging.getLogger(__name__)
 
 class SoulseekDownloader:
     # we communicate with slskd through port 5030, you can visit localhost:5030 to see the web front end
-    def __init__(self, api_key: str):
+    def __init__(self, api_key: str, app_params: AppParams):
         self._api_key = api_key
+        self._app_params = app_params
         self._client = None
 
     async def __aenter__(self):
@@ -121,7 +122,7 @@ class SoulseekDownloader:
                     if slskd_download["state"] == "Completed, Succeeded":
                         # by default slskd places downloads in assets/downloads/<containing folder name of file from user>/<file from user>
                         containing_dir_name = os.path.basename(os.path.dirname(download_filepath.replace("\\", "/")))
-                        source_path = os.path.join(f"{os.getcwd()}/assets/downloads/{containing_dir_name}/{download_filename}")
+                        source_path = os.path.join(f"{self._app_params.database_path.replace("/soul.db", "")}/downloads/{containing_dir_name}/{download_filename}")
                         final_filepath = os.path.join(f"{output_path}/{download_filename}")
 
                         if not os.path.exists(source_path):

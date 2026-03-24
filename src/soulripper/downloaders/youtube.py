@@ -32,6 +32,7 @@ async def download_track_ytdlp(search_query: str, output_path: str, cookies_file
             "yt-dlp",
             search_query,
             "--cookies", cookies_filepath,
+            "--remote-components", "ejs:github",
             "-x", "--audio-format", "mp3",
             "--embed-thumbnail", "--add-metadata",
             "--paths", output_path,
