@@ -192,3 +192,22 @@ assets/soul.db-journal
 debug/*
 slskd*
 .vscode/*
+
+# from npx sv create auto generated gitignore
+frontend/node_modules
+
+# Output
+frontend/.output
+frontend/.vercel
+frontend/.netlify
+frontend/.wrangler
+frontend/.svelte-kit
+frontend/build
+
+# OS
+frontend/.DS_Store
+frontend/Thumbs.db
+
+# Vite
+frontend/vite.config.js.timestamp-*
+frontend/vite.config.ts.timestamp-*
