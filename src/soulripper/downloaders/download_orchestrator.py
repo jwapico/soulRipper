@@ -14,7 +14,7 @@ from soulripper.utils import AppParams
 logger = logging.getLogger(__name__)
 
 class DownloadOrchestrator():
-    def __init__(self, soulseek_downloader: SoulseekDownloader, spotify_client: SpotifyClient, spotify_synchronizer: SpotifySynchronizer, sql_session: AsyncSession, app_params: AppParams):
+    def __init__(self, soulseek_downloader: SoulseekDownloader, spotify_client: Optional[SpotifyClient], spotify_synchronizer: Optional[SpotifySynchronizer], sql_session: AsyncSession, app_params: AppParams):
         self._soulseek_downloader = soulseek_downloader
         self._spotify_client = spotify_client
         self._spotify_synchronizer = spotify_synchronizer
@@ -129,10 +129,13 @@ class DownloadOrchestrator():
         tasks = [self.download_playlist(playlist_id=playlist.id) for playlist in playlists_data if playlist.id]
         await asyncio.gather(*tasks, return_exceptions=True)
     
-    async def download_liked_songs(self) -> None:
+    async def download_liked_spotify(self) -> None:
         """
         Downloads all the users liked songs
         """
+        if not self._spotify_synchronizer:
+            raise Exception("You need to initialize a SpotifySynchronizer in order to use this functionality")
+
         # get the SPOTIFY_LIKED_SONGS playlist row or populate it with spotify data if it does not already exist
         liked_playlist_row = await PlaylistsRepository.search_for_playlist_by_title(self._sql_session, "SPOTIFY_LIKED_SONGS")
         if liked_playlist_row is None:

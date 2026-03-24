@@ -1,12 +1,11 @@
 import asyncio
 import sys
-import os
 
 from soulripper.utils import AppParams, extract_app_params, init_logger
 from soulripper.cli import CLIOrchestrator
 
 async def main():
-    app_params: AppParams = extract_app_params(f"{os.getcwd().replace('src', '')}/config.yaml")
+    app_params: AppParams = extract_app_params(__file__.replace("src/soulripper/main.py", "config.yaml"))
     
     init_logger(app_params.log_filepath, app_params.log_level, app_params.db_echo)
 
