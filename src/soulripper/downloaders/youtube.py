@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 # TODO: parse the stdout output and publish download events
 
 # TODO: need to embed metadata into the file after it downloads
-async def download_track_ytdlp(search_query: str, output_path: str, cookies_filepath: Optional[str]) -> Optional[str] :
+async def download_track_ytdlp(search_query: str, output_path: str, cookies_filepath: Optional[str], browser: Optional[str]) -> Optional[str] :
     """
     Downloads a track from youtube using yt-dlp
     
@@ -27,7 +27,20 @@ async def download_track_ytdlp(search_query: str, output_path: str, cookies_file
     logger.info(f"Downloading from yt-dlp: {search_query}")
 
     # download the file using yt-dlp and necessary flags
-    if cookies_filepath:
+    if browser:
+        process = await asyncio.create_subprocess_exec(
+            "yt-dlp",
+            search_query,
+            "--cookies-from-browser", browser,
+            "--remote-components", "ejs:github",
+            "-x", "--audio-format", "mp3",
+            "--embed-thumbnail", "--add-metadata",
+            "--paths", output_path,
+            "-o", "%(title)s.%(ext)s",
+            stdout=asyncio.subprocess.PIPE, 
+            stderr=asyncio.subprocess.STDOUT
+        )
+    elif cookies_filepath:
         process = await asyncio.create_subprocess_exec(
             "yt-dlp",
             search_query,
