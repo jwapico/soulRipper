@@ -190,7 +190,7 @@ assets/slskd.yml
 assets/soul.db-journal
 .DS_Store
 debug/*
-slskd*
+slskd-*
 .vscode/*
 
 # from npx sv create auto generated gitignore
