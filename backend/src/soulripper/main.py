@@ -5,7 +5,7 @@ from soulripper.utils import AppParams, extract_app_params, init_logger
 from soulripper.cli import CLIOrchestrator
 
 async def soulrip():
-    config_filepath = __file__.replace("src/soulripper/main.py", "config.yaml")
+    config_filepath = __file__.replace("backend/src/soulripper/main.py", "config.yaml")
     app_params: AppParams = extract_app_params(config_filepath)
     
     init_logger(app_params.log_filepath, app_params.log_level, app_params.db_echo)

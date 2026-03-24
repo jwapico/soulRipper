@@ -1,13 +1,12 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
-import discogs_client
 import logging
 import asyncio
 
 from soulripper.database.services import SpotifySynchronizer
 from soulripper.database.repositories import TracksRepository, PlaylistsRepository
 from soulripper.database.schemas import TrackData
-from soulripper.api_clients import SpotifyClient, DiscogsClient
+from soulripper.api_clients import SpotifyClient
 from soulripper.downloaders import SoulseekDownloader, download_track_ytdlp
 from soulripper.utils import AppParams
 
@@ -73,16 +72,6 @@ class DownloadOrchestrator():
                 await self._sql_session.commit()
 
         return download_path
-
-        # fetch metadata from discogs api 
-        # results = await asyncio.to_thread(self._discogs_client.search, search_query)
-        # first_page = [result for result in results.page(1) if result.data_quality == "Correct"]
-        # TODO: figure out what we want to store in both the file and database - could just store the releases id for discogs
-        # TODO: copy or refactor some scoring code outside of soulseek_downloader to use with the data
-        #   - need to parse the search query or in some way determine which track in the tracklist we want
-        #   - singles and albums containing the track are returned, we probably will get the best data from the album releases
-        # https://python3-discogs-client.readthedocs.io/en/latest/discogs_client.models.html#discogs_client.models.Release
-
 
     async def download_playlist(self, playlist_id: int) -> None:
         """
