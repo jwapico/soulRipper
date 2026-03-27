@@ -93,54 +93,60 @@ class CLIOrchestrator():
         
         # create new db session and call different code depending on args
         async with self._db_session_maker() as session:
-            async with self._soulseek_downloader as soulseek_downloader:
-                self._local_synchronizer = LocalSynchronizer(session)
+            try:
+                async with self._soulseek_downloader as soulseek_downloader:
+                    self._local_synchronizer = LocalSynchronizer(session)
 
-                if SPOTIFY_PLAYLIST_URL or DOWNLOAD_ALL_PLAYLISTS or DOWNLOAD_LIKED:
-                    self._spotify_synchronizer = SpotifySynchronizer(session, self._spotify_client)
-                    self._download_orchestrator = DownloadOrchestrator(self._soulseek_downloader, self._spotify_client, self._spotify_synchronizer, session, self._app_params)
-                else:
-                    self._download_orchestrator = DownloadOrchestrator(self._soulseek_downloader, None, None, session, self._app_params)
+                    if SPOTIFY_PLAYLIST_URL or DOWNLOAD_ALL_PLAYLISTS or DOWNLOAD_LIKED:
+                        self._spotify_synchronizer = SpotifySynchronizer(session, self._spotify_client)
+                        self._download_orchestrator = DownloadOrchestrator(self._soulseek_downloader, self._spotify_client, self._spotify_synchronizer, session, self._app_params)
+                    else:
+                        self._download_orchestrator = DownloadOrchestrator(self._soulseek_downloader, None, None, session, self._app_params)
 
-                # initialze the database
-                async with self._db_engine.begin() as conn:
-                    if DROP_DATABASE:
-                        input("Warning: This will drop all tables in the database. Press enter to continue...")
-                        await conn.run_sync(lambda sync_conn: Base.metadata.drop_all(sync_conn))
+                    # initialze the database
+                    async with self._db_engine.begin() as conn:
+                        if DROP_DATABASE:
+                            input("Warning: This will drop all tables in the database. Press enter to continue...")
+                            await conn.run_sync(lambda sync_conn: Base.metadata.drop_all(sync_conn))
+                        
+                        # create all the tables
+                        await conn.run_sync(lambda sync_conn: Base.metadata.create_all(sync_conn))
+
+                        # dont rescan entire library if quick single song download
+                        if not SEARCH_QUERY:
+                            await self._local_synchronizer.add_local_library_to_db(self._app_params.output_path, self._app_params.valid_music_extensions)
+
+                    # attempts a soulseek then youtube download for the given search query
+                    if SEARCH_QUERY:
+                        await self._download_orchestrator.download_track(search_query=SEARCH_QUERY, update_db=True)
+
+                    # if a playlist url is provided, download the playlist
+                    if SPOTIFY_PLAYLIST_URL:
+                        playlist_id = self._spotify_client.extract_playlist_id_from_url(SPOTIFY_PLAYLIST_URL)
+                        playlist_metadata = await self._spotify_client.get_playlist_info(playlist_id)
+
+                        if playlist_metadata:
+                            playlist_row = await self._spotify_synchronizer.update_db_with_spotify_playlist(playlist_metadata)
+                            await self._download_orchestrator.download_playlist(playlist_row.id)
+
+                    # gets all playlists from spotify, adds them to the database, then downloads each track
+                    if DOWNLOAD_ALL_PLAYLISTS:
+                        await self._spotify_synchronizer.update_db_with_all_playlists()
+                        await self._download_orchestrator.download_all_playlists()
+
+                    # downloads all the users liked songs from spotify
+                    if DOWNLOAD_LIKED:
+                        await self._spotify_synchronizer.update_db_with_spotify_liked_tracks()
+                        await self._download_orchestrator.download_liked_spotify()
                     
-                    # create all the tables
-                    await conn.run_sync(lambda sync_conn: Base.metadata.create_all(sync_conn))
+                    # manual way to add a new local track to the database
+                    if NEW_TRACK_FILEPATH:
+                        await self._local_synchronizer.add_local_track_to_db(NEW_TRACK_FILEPATH)
 
-                    # dont rescan entire library if quick single song download
-                    if not SEARCH_QUERY:
-                        await self._local_synchronizer.add_local_library_to_db(self._app_params.output_path, self._app_params.valid_music_extensions)
-
-                # attempts a soulseek then youtube download for the given search query
-                if SEARCH_QUERY:
-                    await self._download_orchestrator.download_track(search_query=SEARCH_QUERY, update_db=True)
-
-                # if a playlist url is provided, download the playlist
-                if SPOTIFY_PLAYLIST_URL:
-                    playlist_id = self._spotify_client.extract_playlist_id_from_url(SPOTIFY_PLAYLIST_URL)
-                    playlist_metadata = await self._spotify_client.get_playlist_info(playlist_id)
-
-                    if playlist_metadata:
-                        playlist_row = await self._spotify_synchronizer.update_db_with_spotify_playlist(playlist_metadata)
-                        await self._download_orchestrator.download_playlist(playlist_row.id)
-
-                # gets all playlists from spotify, adds them to the database, then downloads each track
-                if DOWNLOAD_ALL_PLAYLISTS:
-                    await self._spotify_synchronizer.update_db_with_all_playlists()
-                    await self._download_orchestrator.download_all_playlists()
-
-                # downloads all the users liked songs from spotify
-                if DOWNLOAD_LIKED:
-                    await self._spotify_synchronizer.update_db_with_spotify_liked_tracks()
-                    await self._download_orchestrator.download_liked_spotify()
-                
-                # manual way to add a new local track to the database
-                if NEW_TRACK_FILEPATH:
-                    await self._local_synchronizer.add_local_track_to_db(NEW_TRACK_FILEPATH)
+                await session.commit()
+            except Exception:
+                await session.rollback()
+                raise
 
     def _parse_cmdline_args(self) -> argparse.Namespace:
         """creates an argparse parser, adds all the arguments, and updates _app_params with parsed values. returns the args"""
