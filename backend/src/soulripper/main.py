@@ -1,4 +1,6 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+import uvicorn
 import asyncio
 import sys
 
@@ -7,6 +9,13 @@ from soulripper.cli import CLIOrchestrator
 from soulripper.api import tracks_route
 
 app = FastAPI()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 app.include_router(tracks_route.router)
 
 async def soulrip():
@@ -23,4 +32,7 @@ def main():
     asyncio.run(soulrip())
 
 if __name__ == "__main__":
+    if sys.argv[1] == "--run-server":
+        uvicorn.run(app, host="0.0.0.0", port=8000)
+
     main()

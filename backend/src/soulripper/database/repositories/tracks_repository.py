@@ -265,3 +265,9 @@ class TracksRepository():
         sql_session.add_all(orm_artist_assocs)
         await sql_session.flush()
         logger.info(f"Inserted {len(new_tracks)} new tracks.")
+
+    @classmethod
+    async def get_all_tracks(cls, sql_session: AsyncSession) -> List[Tracks]:
+        stmt = sqla.select(Tracks)
+        result = await sql_session.execute(stmt)
+        return list(result.scalars())
