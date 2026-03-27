@@ -1,8 +1,13 @@
+from fastapi import FastAPI
 import asyncio
 import sys
 
 from soulripper.utils import AppParams, extract_app_params, init_logger
 from soulripper.cli import CLIOrchestrator
+from soulripper.api import tracks_route
+
+app = FastAPI()
+app.include_router(tracks_route.router)
 
 async def soulrip():
     config_filepath = __file__.replace("backend/src/soulripper/main.py", "config.yaml")

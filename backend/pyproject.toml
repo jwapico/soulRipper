@@ -26,6 +26,8 @@ dependencies = [
   "greenlet",
   "rapidfuzz",
   "httpx",
+  "fastapi",
+  "uvicorn"
 ]
 
 [project.urls]
