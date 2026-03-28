@@ -1,22 +1,10 @@
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 import asyncio
 import sys
 
 from soulripper.utils import AppParams, extract_app_params, init_logger
 from soulripper.cli import CLIOrchestrator
-from soulripper.api import tracks_route
-
-app = FastAPI()
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-app.include_router(tracks_route.router)
+from soulripper.api import app
 
 async def soulrip():
     config_filepath = __file__.replace("backend/src/soulripper/main.py", "config.yaml")

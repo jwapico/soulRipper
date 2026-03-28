@@ -99,9 +99,9 @@ class CLIOrchestrator():
 
                     if SPOTIFY_PLAYLIST_URL or DOWNLOAD_ALL_PLAYLISTS or DOWNLOAD_LIKED:
                         self._spotify_synchronizer = SpotifySynchronizer(session, self._spotify_client)
-                        self._download_orchestrator = DownloadOrchestrator(self._soulseek_downloader, self._spotify_client, self._spotify_synchronizer, session, self._app_params)
+                        self._download_orchestrator = DownloadOrchestrator(session, self._app_params, self._soulseek_downloader, self._spotify_client, self._spotify_synchronizer)
                     else:
-                        self._download_orchestrator = DownloadOrchestrator(self._soulseek_downloader, None, None, session, self._app_params)
+                        self._download_orchestrator = DownloadOrchestrator(session, self._app_params, self._soulseek_downloader)
 
                     # initialze the database
                     async with self._db_engine.begin() as conn:
