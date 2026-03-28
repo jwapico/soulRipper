@@ -1,11 +1,26 @@
 <script lang="ts">
-	import favicon from '$lib/assets/favicon.svg';
+	import Sidebar from '../components/Sidebar.svelte';
+	import Topbar from '../components/Topbar.svelte';
 
 	let { children } = $props();
 </script>
 
-<svelte:head>
-	<link rel="icon" href={favicon} />
-</svelte:head>
+<!-- TODO: CSS to be moved into files -->
 
-{@render children()}
+<div style="display: flex; flex-direction: column; border: 1px solid orange">
+	<Topbar style="border: 1px solid yellow">
+		<p>File</p>
+		<p>Preferences</p>
+	</Topbar>
+
+	<div style="display: flex; border: 1px solid red">
+		<Sidebar style="border: 1px solid blue">
+			<a href="/">home</a>
+			<a href="/tracks">tracks</a>
+			<a href="/playlists">playlists</a>
+			<a href="/download">download</a>
+		</Sidebar>
+		
+		{@render children()}
+	</div>
+</div>

@@ -9,12 +9,18 @@ from soulripper.api import tracks_route
 from soulripper.utils import AppParams, extract_app_params
 from soulripper.api_clients import SpotifyClient, SpotifyUserData
 from soulripper.downloaders import SoulseekDownloader
+from soulripper.utils import init_logger
+
+config_filepath = __file__.replace("backend/src/soulripper/api/bringup.py", "config.yaml")
+app_params: AppParams = extract_app_params(config_filepath)
+init_logger(app_params.log_filepath, app_params.log_level, app_params.db_echo)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    config_filepath = __file__.replace("backend/src/soulripper/api/bringup.py", "config.yaml")
-    app_params: AppParams = extract_app_params(config_filepath)
     
+    app.state.spotify_client = None
+    app.state.spotify_synchronizer = None
+    app.state.soulseek_downloader = None
     app.state.app_params = app_params
     app.state.engine = create_async_engine(f"sqlite+aiosqlite:///{app_params.database_path}")
     app.state.sessionmaker = async_sessionmaker(
@@ -22,10 +28,6 @@ async def lifespan(app: FastAPI):
         expire_on_commit=False,
         class_=AsyncSession
     )
-
-    app.state.spotify_client = None
-    app.state.spotify_synchronizer = None
-    app.state.soulseek_downloader = None
 
     dotenv.load_dotenv()
     SPOTIFY_CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID")
