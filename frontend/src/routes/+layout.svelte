@@ -15,8 +15,7 @@
 
 	<div style="display: flex; border: 1px solid red">
 		<Sidebar style="border: 1px solid blue">
-			<a href="/">home</a>
-			<a href="/tracks">tracks</a>
+			<a href="/">tracks</a>
 			<a href="/playlists">playlists</a>
 			<a href="/download">download</a>
 		</Sidebar>
