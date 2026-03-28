@@ -10,14 +10,10 @@ async def get_session(request: Request):
         yield session
 
 async def get_download_orchestrator(request: Request, session: AsyncSession = Depends(get_session)) -> DownloadOrchestrator:
-    app = request.app
-    download_orchestrator = DownloadOrchestrator(sql_session=session, app_params=app.state.app_params)
-
-    if app.state.spotify_client:
-        download_orchestrator.spotify_client = app.state.spotify_client
-        download_orchestrator.spotify_synchronizer = SpotifySynchronizer(session, app.state.spotify_client)
-
-    if app.state.soulseek_downloader:
-        download_orchestrator.soulseek_downloader = app.state.soulseek_downloader
-
-    return download_orchestrator
+    return DownloadOrchestrator(
+        sql_session=session,
+        app_params=request.app.state.app_params,
+        soulseek_downloader=request.app.state.soulseek_downloader if request.app.state.soulseek_downloader else None,
+        spotify_client=request.app.state.spotify_client if request.app.state.spotify_client else None,
+        spotify_synchronizer=SpotifySynchronizer(session, request.app.state.spotify_client) if request.app.state.spotify_client else None
+    )

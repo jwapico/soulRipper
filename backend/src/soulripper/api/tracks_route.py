@@ -27,7 +27,7 @@ async def get_all_tracks(session: AsyncSession = Depends(get_session)):
     ]
 
 @router.get("/tracks/{track_id}")
-async def get_track( track_id: int, session: AsyncSession = Depends(get_session)):
+async def get_track(track_id: int, session: AsyncSession = Depends(get_session)):
     track: Tracks = await TracksRepository.get_track_from_id(session, track_id)
 
     if not track:

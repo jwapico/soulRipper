@@ -14,9 +14,9 @@ logger = logging.getLogger(__name__)
 
 class DownloadOrchestrator():
     def __init__(self, sql_session: AsyncSession, app_params: AppParams, soulseek_downloader: Optional[SoulseekDownloader] = None, spotify_client: Optional[SpotifyClient] = None, spotify_synchronizer: Optional[SpotifySynchronizer] = None):
-        self.soulseek_downloader = soulseek_downloader
-        self.spotify_client = spotify_client
-        self.spotify_synchronizer = spotify_synchronizer
+        self._soulseek_downloader = soulseek_downloader
+        self._spotify_client = spotify_client
+        self._spotify_synchronizer = spotify_synchronizer
         self._sql_session = sql_session
         self._app_params = app_params
         self._download_semaphore = asyncio.Semaphore(app_params.num_concurrent_downloads)
@@ -53,10 +53,10 @@ class DownloadOrchestrator():
     
         # download the track from soulseek or youtube
         async with self._download_semaphore:
-            if self._app_params.youtube_only or self.soulseek_downloader is None:
+            if self._app_params.youtube_only or self._soulseek_downloader is None:
                 download_path = await download_track_ytdlp(search_query, self._app_params.output_path, self._app_params.youtube_cookie_filepath, self._app_params.browser)
             else:
-                download_path = await self.soulseek_downloader.download_track(search_query, self._app_params.output_path, self._app_params.max_download_retries)
+                download_path = await self._soulseek_downloader.download_track(search_query, self._app_params.output_path, self._app_params.max_download_retries)
                 if download_path is None:
                     download_path = await download_track_ytdlp(search_query, self._app_params.output_path, self._app_params.youtube_cookie_filepath, self._app_params.browser)
 
@@ -122,13 +122,13 @@ class DownloadOrchestrator():
         """
         Downloads all the users liked songs
         """
-        if not self.spotify_synchronizer:
+        if not self._spotify_synchronizer:
             raise Exception("You need to initialize a SpotifySynchronizer in order to use this functionality")
 
         # get the SPOTIFY_LIKED_SONGS playlist row or populate it with spotify data if it does not already exist
         liked_playlist_row = await PlaylistsRepository.search_for_playlist_by_title(self._sql_session, "SPOTIFY_LIKED_SONGS")
         if liked_playlist_row is None:
-            liked_playlist_row = await self.spotify_synchronizer.update_db_with_spotify_liked_tracks()
+            liked_playlist_row = await self._spotify_synchronizer.update_db_with_spotify_liked_tracks()
 
         if liked_playlist_row:
             await self.download_playlist(liked_playlist_row.id)
