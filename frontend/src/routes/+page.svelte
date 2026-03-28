@@ -3,7 +3,7 @@
 </script>
 
 {#each data.tracks as track}
-    <div>
+    <div class="flex">
         <p>{track.id} {track.title} {track.spotify_id}</p>
         <a href={track.filepath}>{track.filepath}</a>
     </div>

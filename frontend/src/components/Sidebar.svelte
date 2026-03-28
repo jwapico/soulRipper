@@ -1,9 +1,8 @@
 <script lang="ts">
-    let { children, style = "" } = $props()
+    let { children} = $props()
 </script>
 
-<div style="display: flex; flex-direction: column; {style}">
+<div>
     Sidebar
-
     {@render children()}
 </div>

@@ -1,8 +1,7 @@
 <script lang="ts">
-    let { children, style = "" } = $props()
+    let { children } = $props()
 </script>
 
-<div style="display:flex; {style}">
-    <p>Topbar</p>
+<div class="flex">
     {@render children()}
 </div>
