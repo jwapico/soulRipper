@@ -42,8 +42,12 @@ async def lifespan(app: FastAPI):
     SLSKD_API_KEY = os.getenv("SLSKD_API_KEY")
     if SLSKD_API_KEY:
         app.state.soulseek_downloader = SoulseekDownloader(SLSKD_API_KEY, app_params)
+        await app.state.soulseek_downloader.__aenter__()
 
     yield
+
+    if app.state.soulseek_downloader:
+        await app.state.soulseek_downloader.__aexit__(None, None, None)
 
     await app.state.engine.dispose()
 
