@@ -23,6 +23,7 @@ class DownloadOrchestrator():
         self._db_lock = asyncio.Lock()
 
     # TODO: get accurate metadata for the track and embed it into the file and database row
+    # TODO: also return TrackData object instead of download path
     async def download_track(self, track_data: Optional[TrackData] = None, search_query: Optional[str] = None, update_db: Optional[bool] = True) -> Optional[str]:
         """
         Downloads a track from SoulSeek or Youtube, optionally updates the database with it.
