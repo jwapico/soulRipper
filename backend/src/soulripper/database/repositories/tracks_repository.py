@@ -1,9 +1,11 @@
 from typing import Optional, List, Tuple
 import sqlalchemy as sqla
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
+from sqlalchemy import Row, DateTime
 import logging
 
-from ..models import Tracks, Artists, TrackArtists
+from ..models import Tracks, Artists, TrackArtists, Playlists, PlaylistTracks
 from ..schemas import TrackData
 
 logger = logging.getLogger(__name__)
@@ -267,7 +269,15 @@ class TracksRepository():
         logger.info(f"Inserted {len(new_tracks)} new tracks.")
 
     @classmethod
-    async def get_all_tracks(cls, sql_session: AsyncSession) -> List[Tracks]:
-        stmt = sqla.select(Tracks)
+    async def get_all_tracks(cls, sql_session: AsyncSession) -> List[Row[Tuple[Tracks, DateTime]]]:
+        liked_songs_subquery = (
+            sqla.select(PlaylistTracks.added_at)
+            .join(Playlists, PlaylistTracks.playlist_id == Playlists.id)
+            .where(PlaylistTracks.track_id == Tracks.id)
+            .where(Playlists.name == "SPOTIFY_LIKED_SONGS")
+            .correlate(Tracks)
+            .scalar_subquery()
+        )
+        stmt = (sqla.select(Tracks, liked_songs_subquery.label('date_added')).options(selectinload(Tracks.artists)))
         result = await sql_session.execute(stmt)
-        return list(result.scalars())
+        return list(result.all())

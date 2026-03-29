@@ -211,3 +211,5 @@ frontend/Thumbs.db
 # Vite
 frontend/vite.config.js.timestamp-*
 frontend/vite.config.ts.timestamp-*
+
+!frontend/src/lib/

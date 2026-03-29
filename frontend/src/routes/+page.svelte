@@ -1,10 +1,11 @@
 <script lang="ts">
-    let { data } = $props();
+	import type { TrackResponse } from '$lib/interfaces/TrackResponse.js';
+	import TrackCard from '../components/TrackCard.svelte';
+
+    let { data } = $props()
+    let tracks: TrackResponse[] = $derived(data.tracks);
 </script>
 
-{#each data.tracks as track}
-    <div class="flex">
-        <p>{track.id} {track.title} {track.spotify_id}</p>
-        <a href={track.filepath}>{track.filepath}</a>
-    </div>
+{#each tracks as track}
+    <TrackCard {track} />
 {/each}

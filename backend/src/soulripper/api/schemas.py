@@ -1,12 +1,14 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 
 class TrackResponse(BaseModel):
     id: int
     title: Optional[str]
+    artists: Optional[List[str]]
     filepath: Optional[str]
     album: Optional[str]
     release_date: Optional[str]
+    date_added: Optional[str]
     comments: Optional[str]
     explicit: Optional[bool]
     spotify_id: Optional[str]
