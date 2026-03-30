@@ -213,3 +213,6 @@ frontend/vite.config.js.timestamp-*
 frontend/vite.config.ts.timestamp-*
 
 !frontend/src/lib/
+!package.json
+!package-lock.json
+!tsconfig.json
