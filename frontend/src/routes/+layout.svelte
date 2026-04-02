@@ -3,6 +3,7 @@
 
 	import Sidebar from '../components/Sidebar.svelte';
 	import Topbar from '../components/Topbar.svelte';
+	import Player from '../components/Player.svelte';
 
 	let { children } = $props();
 </script>
@@ -24,4 +25,6 @@
 		
 		{@render children()}
 	</div>
+
+	<Player />
 </div>

@@ -213,3 +213,11 @@ frontend/vite.config.js.timestamp-*
 frontend/vite.config.ts.timestamp-*
 
 !frontend/src/lib/
+
+!frontend/package.json
+!frontend/package-lock.json
+!frontend/tsconfig.json
+!frontend/src-tauri/tauri.conf.json
+!frontend/src-tauri/capabilities/default.json
+frontend/src-tauri/gen/
+frontend/src-tauri/target/
