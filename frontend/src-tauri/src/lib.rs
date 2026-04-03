@@ -1,9 +1,14 @@
 use rodio::{Decoder, DeviceSinkBuilder, DeviceSinkError, MixerDeviceSink, Player, Source};
+use rodio::source::SeekError;
+use rodio::decoder::symphonia::SeekError as SymphoniaSeekError;
 use serde_json::json;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use std::thread;
 use tauri::{AppHandle, Emitter, Manager};
+
+// Buffer offset to account for audio‑device latency (in milliseconds)
+const BUFFER_OFFSET_MS: u64 = 50;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum PlaybackState {
@@ -53,9 +58,11 @@ impl PlayerState {
 
     fn pause(&mut self) {
         if self.state == PlaybackState::Playing {
-            let pos = self.current_position();
+            // Subtract a small buffer offset to compensate for audio‑device latency
+            let raw_position = self.current_position();
+            let adjusted = raw_position.saturating_sub(Duration::from_millis(BUFFER_OFFSET_MS));
             self.state = PlaybackState::Paused;
-            self.track_position_at_start = pos;
+            self.track_position_at_start = adjusted;
             self.track_start_instant = None;
         }
     }
@@ -82,8 +89,9 @@ impl PlayerState {
 }
 
 struct AudioState {
-    _sink_handle: MixerDeviceSink,   // ← replaces SendOutputStream
-    player: Player,                  // ← replaces sink
+    #[allow(dead_code)]
+    sink_handle: MixerDeviceSink,
+    player: Player,
     app_handle: AppHandle,
     player_state: Mutex<PlayerState>,
 }
@@ -94,7 +102,14 @@ fn play_audio(filepath: String, state: tauri::State<Arc<AudioState>>) -> Result<
     
     let file = std::fs::File::open(&filepath)
         .map_err(|e| e.to_string())?;
-    let source = Decoder::new(file)
+    let file_len = file.metadata().map(|m| m.len()).ok();
+    let mut builder = Decoder::builder()
+        .with_data(file)
+        .with_coarse_seek(true);
+    if let Some(len) = file_len {
+        builder = builder.with_byte_len(len);
+    }
+    let source = builder.build()
         .map_err(|e| e.to_string())?;
     
     let duration = source.total_duration();
@@ -103,6 +118,8 @@ fn play_audio(filepath: String, state: tauri::State<Arc<AudioState>>) -> Result<
     ps.start_playback(filepath, duration);
     
     state.player.append(source);
+    // Ensure the player is not paused when starting a new track
+    state.player.play();
     Ok(())
 }
 
@@ -120,8 +137,6 @@ fn pause_audio(state: tauri::State<Arc<AudioState>>) -> Result<(), String> {
 fn resume_audio(state: tauri::State<Arc<AudioState>>) -> Result<(), String> {
     let mut ps = state.player_state.lock().map_err(|e| e.to_string())?;
     if ps.state == PlaybackState::Paused {
-        // Sync sink position before playing
-        state.player.try_seek(ps.track_position_at_start).map_err(|e| e.to_string())?;
         state.player.play();
         ps.resume();
     }
@@ -141,22 +156,83 @@ fn seek_audio(position_secs: f64, state: tauri::State<Arc<AudioState>>) -> Resul
     
     ps.is_seeking = true;
     
-    state.player.try_seek(position).map_err(|e| e.to_string())?;
-    ps.seek(position);
-    
-    // Emit immediate position update
-    let position_f64 = position.as_secs_f64();
-    let duration_f64 = ps.track_duration.map(|d| d.as_secs_f64());
-    let payload = json!({
-        "position": position_f64,
-        "duration": duration_f64,
-        "state": format!("{:?}", ps.state).to_lowercase(),
-    });
-    state.app_handle.emit("audio://position_update", payload).map_err(|e| e.to_string())?;
-    
-    ps.is_seeking = false;
-    
-    Ok(())
+    // Try normal seek first
+    match state.player.try_seek(position) {
+        Ok(()) => {
+            ps.seek(position);
+            // Emit immediate position update
+            let position_f64 = position.as_secs_f64();
+            let duration_f64 = ps.track_duration.map(|d| d.as_secs_f64());
+            let payload = json!({
+                "position": position_f64,
+                "duration": duration_f64,
+                "state": format!("{:?}", ps.state).to_lowercase(),
+            });
+            state.app_handle.emit("audio://position_update", payload)
+                .map_err(|e| e.to_string())?;
+            ps.is_seeking = false;
+            Ok(())
+        }
+        Err(SeekError::SymphoniaDecoder(SymphoniaSeekError::RandomAccessNotSupported)) |
+        Err(SeekError::SymphoniaDecoder(SymphoniaSeekError::AccurateSeekNotSupported)) => {
+            // Fallback: restart decoder and skip to target position
+            let filepath = match ps.current_filepath.clone() {
+                Some(fp) => fp,
+                None => {
+                    ps.is_seeking = false;
+                    return Err("No current filepath".into());
+                }
+            };
+            let was_playing = ps.state == PlaybackState::Playing;
+            // Stop current player
+            state.player.stop();
+            // Create new decoder
+            let file = std::fs::File::open(&filepath)
+                .map_err(|e| e.to_string())?;
+            let file_len = file.metadata().map(|m| m.len()).ok();
+            let mut builder = Decoder::builder()
+                .with_data(file)
+                .with_coarse_seek(true);
+            if let Some(len) = file_len {
+                builder = builder.with_byte_len(len);
+            }
+            let source = builder.build().map_err(|e| e.to_string())?;
+            let skipped = source.skip_duration(position);
+            let duration = skipped.total_duration();
+            // Update player state
+            ps.track_duration = duration;
+            ps.track_position_at_start = position;
+            if was_playing {
+                ps.track_start_instant = Some(Instant::now());
+                ps.state = PlaybackState::Playing;
+            } else {
+                ps.track_start_instant = None;
+                ps.state = PlaybackState::Paused;
+            }
+            // Append new source
+            state.player.append(skipped);
+            // Ensure the player is playing (if it was playing before)
+            if was_playing {
+                state.player.play();
+            }
+            // Emit position update
+            let position_f64 = position.as_secs_f64();
+            let duration_f64 = duration.map(|d| d.as_secs_f64());
+            let payload = json!({
+                "position": position_f64,
+                "duration": duration_f64,
+                "state": format!("{:?}", ps.state).to_lowercase(),
+            });
+            state.app_handle.emit("audio://position_update", payload)
+                .map_err(|e| e.to_string())?;
+            ps.is_seeking = false;
+            Ok(())
+        }
+        Err(e) => {
+            ps.is_seeking = false;
+            Err(e.to_string())
+        }
+    }
 }
 
 #[tauri::command]
@@ -177,14 +253,14 @@ fn get_playback_state(state: tauri::State<Arc<AudioState>>) -> Result<serde_json
 pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
-            // rodio 0.22 API
+            // Open default audio sink and create a player
             let sink_handle = DeviceSinkBuilder::open_default_sink()
                 .map_err(|e: DeviceSinkError| e.to_string())?;
             let player = Player::connect_new(sink_handle.mixer());
             
             let app_handle = app.handle().clone();
             let audio_state = Arc::new(AudioState {
-                _sink_handle: sink_handle,
+                sink_handle,
                 player,
                 app_handle,
                 player_state: Mutex::new(PlayerState::new()),

@@ -9,8 +9,8 @@
   let position = $state(0);
   let duration = $state<number | null>(null);
   let filepath = $state<string | null>(null);
-  let isDragging = $state(false);          // new: true while user drags slider
-  let seeking = $state(false);             // new: true while a seek command is in flight
+  let isDragging = $state(false);          // true while user drags slider
+  let seeking = $state(false);             // true while a seek command is in flight
 
   // Derived display values
   let progress = $derived(duration ? (position / duration) * 100 : 0);
@@ -66,6 +66,8 @@
     try {
       const state: PlaybackState = await invoke('get_playback_state');
       position = state.position;
+      duration = state.duration;
+      playing = state.state === 'playing';
     } catch (e) {
       console.error('Failed to revert slider:', e);
     }
