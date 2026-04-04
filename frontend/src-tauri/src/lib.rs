@@ -1,92 +1,14 @@
+use std::time::{Duration, Instant};
 use rodio::{Decoder, DeviceSinkBuilder, DeviceSinkError, MixerDeviceSink, Player, Source};
 use rodio::source::SeekError;
 use rodio::decoder::symphonia::SeekError as SymphoniaSeekError;
 use serde_json::json;
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
 use std::thread;
 use tauri::{AppHandle, Emitter, Manager};
 
-// Buffer offset to account for audio‑device latency (in milliseconds)
-const BUFFER_OFFSET_MS: u64 = 50;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum PlaybackState {
-    Stopped,
-    Playing,
-    Paused,
-}
-
-struct PlayerState {
-    state: PlaybackState,
-    track_start_instant: Option<Instant>,
-    track_position_at_start: Duration,
-    track_duration: Option<Duration>,
-    current_filepath: Option<String>,
-    is_seeking: bool,
-}
-
-impl PlayerState {
-    fn new() -> Self {
-        Self {
-            state: PlaybackState::Stopped,
-            track_start_instant: None,
-            track_position_at_start: Duration::ZERO,
-            track_duration: None,
-            current_filepath: None,
-            is_seeking: false,
-        }
-    }
-
-    fn current_position(&self) -> Duration {
-        match self.state {
-            PlaybackState::Playing => {
-                let start = self.track_start_instant.expect("playing without start instant");
-                self.track_position_at_start + start.elapsed()
-            }
-            PlaybackState::Paused | PlaybackState::Stopped => self.track_position_at_start,
-        }
-    }
-
-    fn start_playback(&mut self, filepath: String, duration: Option<Duration>) {
-        self.state = PlaybackState::Playing;
-        self.track_start_instant = Some(Instant::now());
-        self.track_position_at_start = Duration::ZERO;
-        self.track_duration = duration;
-        self.current_filepath = Some(filepath);
-    }
-
-    fn pause(&mut self) {
-        if self.state == PlaybackState::Playing {
-            // Subtract a small buffer offset to compensate for audio‑device latency
-            let raw_position = self.current_position();
-            let adjusted = raw_position.saturating_sub(Duration::from_millis(BUFFER_OFFSET_MS));
-            self.state = PlaybackState::Paused;
-            self.track_position_at_start = adjusted;
-            self.track_start_instant = None;
-        }
-    }
-
-    fn resume(&mut self) {
-        if self.state == PlaybackState::Paused {
-            self.state = PlaybackState::Playing;
-            self.track_start_instant = Some(Instant::now());
-        }
-    }
-
-    fn seek(&mut self, position: Duration) {
-        self.track_position_at_start = position;
-        if self.state == PlaybackState::Playing {
-            self.track_start_instant = Some(Instant::now());
-        }
-    }
-
-    fn stop(&mut self) {
-        self.state = PlaybackState::Stopped;
-        self.track_start_instant = None;
-        self.track_position_at_start = Duration::ZERO;
-    }
-}
+mod audio_player;
+use audio_player::{PlaybackState, PlayerState};
 
 struct AudioState {
     #[allow(dead_code)]
@@ -118,7 +40,6 @@ fn play_audio(filepath: String, state: tauri::State<Arc<AudioState>>) -> Result<
     ps.start_playback(filepath, duration);
     
     state.player.append(source);
-    // Ensure the player is not paused when starting a new track
     state.player.play();
     Ok(())
 }
@@ -184,9 +105,7 @@ fn seek_audio(position_secs: f64, state: tauri::State<Arc<AudioState>>) -> Resul
                 }
             };
             let was_playing = ps.state == PlaybackState::Playing;
-            // Stop current player
             state.player.stop();
-            // Create new decoder
             let file = std::fs::File::open(&filepath)
                 .map_err(|e| e.to_string())?;
             let file_len = file.metadata().map(|m| m.len()).ok();
