@@ -1,11 +1,11 @@
-use std::time::{Duration};
-use tauri::{Emitter, Manager};
 use serde_json::json;
-use std::thread;
 use std::sync::{Arc, Mutex};
+use std::thread;
+use std::time::Duration;
+use tauri::{Emitter, Manager};
 
-mod scan;
 mod audio;
+mod scan;
 
 use scan::{scan_dir};
 use audio::{
@@ -24,6 +24,8 @@ const FRONTEND_POLLING_INTERVAL_MS: u64 = 100;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_os::init())
         .setup(|app| {
             // create handle to the default OS output device
             let sink_handle = rodio::DeviceSinkBuilder::open_default_sink()
@@ -38,13 +40,13 @@ pub fn run() {
                 app_handle,
                 playback_state: Mutex::new(PlaybackManager::new()),
             });
-            
+
             // spawn a new thread to watch the PlayerState and emit upates to the ui
             let thread_audio_state = Arc::clone(&audio_state);
             thread::spawn(move || {
                 loop {
                     thread::sleep(Duration::from_millis(FRONTEND_POLLING_INTERVAL_MS));
-                    
+
                     // grab the PlayerState rq and extract current state
                     let (position, duration, current_state, is_seeking) = {
                         let mut ps = thread_audio_state.playback_state.lock().unwrap();
@@ -66,11 +68,11 @@ pub fn run() {
                             drop(ps);
                         } (position, duration, current_state, is_seeking)
                     };
-                    
+
                     let position_f64 = position.as_secs_f64();
                     let duration_f64 = duration.map(|d| d.as_secs_f64());
-                    
-                    // send state to UI for update if user not interacting 
+
+                    // send state to UI for update if user not interacting
                     if !is_seeking {
                         let payload = json!({
                             "position": position_f64,

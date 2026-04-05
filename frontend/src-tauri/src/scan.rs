@@ -1,10 +1,10 @@
-use std::collections::HashMap;
-use std::{os::unix::fs::MetadataExt};
 use lofty::file::{AudioFile, TaggedFileExt};
-use serde_json::json;
-use walkdir::WalkDir;
-use tauri::Emitter;
 use log::error;
+use serde_json::json;
+use std::collections::HashMap;
+use std::os::unix::fs::MetadataExt;
+use tauri::Emitter;
+use walkdir::WalkDir;
 
 const AUDIO_EXTENSIONS: [&str; 8] = [
     "mp3", 
@@ -19,7 +19,7 @@ const AUDIO_EXTENSIONS: [&str; 8] = [
 
 #[derive(serde::Serialize)]
 pub struct AudioFileMetadata {
-    pub path: String,
+    pub filepath: String,
     pub file_size: u64,
     pub created: f64,
     pub modified: f64,
@@ -32,12 +32,10 @@ pub struct AudioFileMetadata {
 }
 
 #[tauri::command]
-pub fn scan_dir(root: String, app_handle: tauri::AppHandle) {
-    // scan every file in the directory and emit an event with all it's metadata 
-    for entry in WalkDir::new(root)
-        .follow_links(true)
-        .into_iter()
-        .filter_map(|e| e.ok()) {
+pub fn scan_dir(dir: String, app_handle: tauri::AppHandle) {
+    // scan every file in the directory and emit an event with all it's metadata
+    std::thread::spawn(move || {
+        for entry in WalkDir::new(dir).follow_links(true).into_iter().filter_map(|e| e.ok()) {
             if entry.file_type().is_file() {
                 // get general os file metadata
                 let os_metadata = entry.metadata().unwrap();
@@ -51,10 +49,13 @@ pub fn scan_dir(root: String, app_handle: tauri::AppHandle) {
                     if let Some(ext_str) = ext.to_str() {
                         if AUDIO_EXTENSIONS.contains(&ext_str) {
                             // extract audio file metadata with lofty
-                            let tagged_file = lofty::read_from_path(path).unwrap();
-                            let file_props = tagged_file.properties();
-
+                            let Ok(tagged_file) = lofty::read_from_path(path) else {
+                                dbg!("Skipping unparseable file: {:?}", path);
+                                continue;
+                            };
+                            
                             // intrinsic properties
+                            let file_props = tagged_file.properties();
                             let duration_secs = file_props.duration().as_secs();
                             let bit_rate = file_props.audio_bitrate();
                             let sample_rate = file_props.sample_rate();
@@ -73,22 +74,23 @@ pub fn scan_dir(root: String, app_handle: tauri::AppHandle) {
 
                             // emit scan event with the metadata and log error if error
                             if let Err(e) = app_handle.emit("scan://file", json!(AudioFileMetadata {
-                                path: String::from(path.to_str().unwrap()),
-                                file_size,
-                                created,
-                                modified,
-                                duration_secs,
-                                channels,
-                                sample_rate,
-                                bit_rate,
-                                bit_depth,
-                                tags
-                            })) {
+                                    filepath: String::from(path.to_str().unwrap()),
+                                    file_size,
+                                    created,
+                                    modified,
+                                    duration_secs,
+                                    channels,
+                                    sample_rate,
+                                    bit_rate,
+                                    bit_depth,
+                                    tags
+                                })) {
                                 error!("Failed to emit scan event: {}", e);
                             }
                         }
                     }
                 }
             }
-    }
+        }
+    });
 }
