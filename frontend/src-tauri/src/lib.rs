@@ -4,7 +4,10 @@ use serde_json::json;
 use std::thread;
 use std::sync::{Arc, Mutex};
 
+mod scan;
 mod audio;
+
+use scan::{scan_dir};
 use audio::{
     PlaybackManager, 
     AppAudioState, 
@@ -88,7 +91,8 @@ pub fn run() {
             pause_audio,
             resume_audio,
             seek_audio,
-            get_playback_state
+            get_playback_state,
+            scan_dir
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
