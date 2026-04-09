@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 import dotenv
 import os
 
-from soulripper.api import tracks_route
+from soulripper.api.routes import tracks_route, playlists_route
 from soulripper.utils import AppParams, extract_app_params
 from soulripper.api_clients import SpotifyClient, SpotifyUserData
 from soulripper.downloaders import SoulseekDownloader
@@ -17,7 +17,6 @@ init_logger(app_params.log_filepath, app_params.log_level, app_params.db_echo)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    
     app.state.spotify_client = None
     app.state.spotify_synchronizer = None
     app.state.soulseek_downloader = None
@@ -55,6 +54,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 app.include_router(tracks_route.router)
+app.include_router(playlists_route.router)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173"],

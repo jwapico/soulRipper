@@ -16,6 +16,13 @@ class TrackResponse(BaseModel):
     class Config:
         from_attributes = True
 
+class PlaylistTracksResponse(BaseModel):
+    playlist_id: int
+    spotify_id: Optional[str]
+    name: str
+    description: Optional[str]
+    tracks: List[TrackResponse]
+
 class DownloadRequest(BaseModel):
     query: str
 
